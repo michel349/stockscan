@@ -243,6 +243,21 @@ def export_journalier():
 
 
 # ══════════════════════════════════════════════════════════════
+#  STOCK INFO  ← AJOUT
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/stock_info')
+def stock_info():
+    total    = Produit.query.count()
+    ruptures = Produit.query.filter(Produit.stock <= 0).count()
+    return jsonify({
+        'ok':             True,
+        'total_produits': total,
+        'ruptures':       ruptures
+    })
+
+
+# ══════════════════════════════════════════════════════════════
 #  COMMANDES DA — API
 #  ⚠️  Routes statiques AVANT la route dynamique /<destination>
 # ══════════════════════════════════════════════════════════════
