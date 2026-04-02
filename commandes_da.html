@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Commandes DA</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
+
+        /* ═══ ÉCRANS ═══ */
+        .ecran { display: none !important; }
+        .ecran.actif { display: block !important; }
+        #ecran-choix.actif {
+            display: flex !important; flex-direction: column;
+            align-items: center; justify-content: center;
+            min-height: 100vh; gap: 25px;
+        }
+        #ecran-choix h1 { font-size: 2em; color: #2c3e50; }
+        .btn-da {
+            width: 260px; padding: 35px 20px; font-size: 1.8em; font-weight: bold;
+            color: white; border: none; border-radius: 18px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn-da:active { transform: scale(0.96); }
+
+        /* ═══ HEADER ═══ */
+        .top-bar {
+            position: sticky; top: 0; z-index: 100;
+            background: #2c3e50; color: white;
+            padding: 12px 16px; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .top-bar h2 { font-size: 1.1em; }
+        .top-bar button {
+            background: rgba(255,255,255,0.2); color: white;
+            border: none; padding: 8px 14px; border-radius: 8px;
+            font-size: 0.95em; cursor: pointer;
+        }
+
+        /* ═══ BARRE RECHERCHE ═══ */
+        .search-zone {
+            position: sticky; top: 52px; z-index: 99;
+            background: #f0f2f5; padding: 10px 12px;
+            display: flex; gap: 8px;
+        }
+        .search-zone input {
+            flex: 1; padding: 10px 14px; border: 2px solid #ddd;
+            border-radius: 10px; font-size: 1em; outline: none;
+        }
+        .search-zone input:focus { border-color: #3498db; }
+        .search-zone select {
+            padding: 10px; border: 2px solid #ddd; border-radius: 10px;
+            font-size: 0.95em; background: white;
+        }
+
+        /* ═══ TABLEAU PRODUITS ═══ */
+        .tableau-produits {
+            padding: 0 8px 120px 8px;
+        }
+        .cat-titre {
+            background: #34495e; color: white;
+            padding: 8px 14px; font-weight: bold;
+            font-size: 0.95em; margin-top: 10px;
+            border-radius: 8px 8px 0 0;
+            position: sticky; top: 104px; z-index: 50;
+        }
+        .ligne-produit {
+            display: flex; align-items: center;
+            background: white; padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            gap: 10px;
+        }
+        .ligne-produit:nth-child(even) { background: #f9f9fb; }
+        .ligne-produit .info { flex: 1; min-width: 0; }
+        .ligne-produit .nom {
+            font-weight: 600; font-size: 0.92em; color: #2c3e50;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ligne-produit .code { font-size: 0.75em; color: #95a5a6; }
+        .ligne-produit .stock-info {
+            font-size: 0.75em; color: #7f8c8d; min-width: 50px; text-align: center;
+        }
+        .ligne-produit .stock-info.rupture { color: #e74c3c; font-weight: bold; }
+
+        /* Champ quantité */
+        .qty-zone {
+            display: flex; align-items: center; gap: 4px;
+        }
+        .qty-btn {
+            width: 36px; height: 36px; border: none; border-radius: 8px;
+            font-size: 1.3em; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: white;
+        }
+        .qty-btn.moins { background: #e74c3c; }
+        .qty-btn.plus { background: #27ae60; }
+        .qty-btn:active { opacity: 0.7; }
+        .qty-input {
+            width: 48px; height: 36px; text-align: center;
+            border: 2px solid #ddd; border-radius: 8px;
+            font-size: 1.1em; font-weight: bold; outline: none;
+        }
+        .qty-input:focus { border-color: #3498db; }
+        .qty-input.has-value { border-color: #27ae60; background: #eafaf1; }
+
+        /* ═══ BARRE FIXE BAS ═══ */
+        .bottom-bar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: white; padding: 12px 16px;
+            box-shadow: 0 -2px 15px rgba(0,0,0,0.1);
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 200;
+        }
+        .bottom-bar .resume {
+            font-size: 0.95em; color: #2c3e50;
+        }
+        .bottom-bar .resume strong { color: #27ae60; }
+        .btn-envoyer {
+            background: #27ae60; color: white; border: none;
+            padding: 14px 30px; border-radius: 12px;
+            font-size: 1.1em; font-weight: bold; cursor: pointer;
+        }
+        .btn-envoyer:active { background: #219a52; }
+        .btn-envoyer:disabled { background: #95a5a6; cursor: default; }
+
+        /* ═══ MENU (2 boutons) ═══ */
+        .menu-btns {
+            display: flex; gap: 12px; padding: 20px 12px; flex-wrap: wrap;
+        }
+        .menu-btn {
+            flex: 1; min-width: 140px; padding: 25px 15px;
+            border: none; border-radius: 14px; font-size: 1.2em;
+            font-weight: bold; cursor: pointer; color: white;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+        }
+        .menu-btn:active { transform: scale(0.97); }
+
+        /* ═══ MES COMMANDES ═══ */
+        .commande-card {
+            background: white; border-radius: 12px; margin: 8px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;
+        }
+        .commande-card .header {
+            padding: 14px 16px; display: flex;
+            justify-content: space-between; align-items: center;
+            cursor: pointer;
+        }
+        .commande-card .header .date { font-weight: bold; color: #2c3e50; }
+        .commande-card .header .badge {
+            background: #f39c12; color: white;
+            padding: 4px 10px; border-radius: 20px;
+            font-size: 0.8em; font-weight: bold;
+        }
+        .commande-card .header .badge.traitee { background: #27ae60; }
+        .commande-card .body { display: none; padding: 0 16px 14px; }
+        .commande-card .body.ouvert { display: block; }
+        .commande-card .body table { width: 100%; font-size: 0.9em; }
+        .commande-card .body table td { padding: 4px 8px; }
+        .commande-card .body table tr:nth-child(even) { background: #f9f9fb; }
+        .cmd-actions { display: flex; gap: 8px; padding: 10px 0 4px; }
+        .cmd-actions button {
+            flex: 1; padding: 10px; border: none; border-radius: 8px;
+            color: white; font-weight: bold; font-size: 0.95em; cursor: pointer;
+        }
+
+        /* ═══ TOAST ═══ */
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            padding: 14px 28px; border-radius: 10px; color: white;
+            font-weight: bold; z-index: 9999; animation: toastIn 0.3s;
+        }
+        .toast-success { background: #27ae60; }
+        .toast-error { background: #e74c3c; }
+        @keyframes toastIn { from { opacity: 0; top: 0; } to { opacity: 1; top: 20px; } }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  ÉCRAN 1 : CHOIX DA                       -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="ecran-choix" class="ecran actif">
+    <h1>📋 Commandes</h1>
+    {% for dest in destinations %}
+    <button class="btn-da" style="background:{{ dest_colors.get(dest, '#333') }}"
+            onclick="choisirDA('{{ dest }}')">
+        {{ dest }}
+    </button>
+    {% endfor %}
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  ÉCRAN 2 : MENU                            -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="ecran-menu" class="ecran">
+    <div class="top-bar">
+        <h2 id="menu-titre">DA1</h2>
+        <button onclick="showEcran('ecran-choix')">← Retour</button>
+    </div>
+    <div class="menu-btns">
+        <button class="menu-btn" style="background:#27ae60;" onclick="ouvrirNouvelle()">
+            📝 Nouvelle<br>commande
+        </button>
+        <button class="menu-btn" style="background:#2980b9;" onclick="ouvrirMesCommandes()">
+            📦 Mes<br>commandes
+        </button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  ÉCRAN 3 : NOUVELLE COMMANDE (TABLEAU)     -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="ecran-nouvelle" class="ecran">
+    <div class="top-bar">
+        <h2 id="nouvelle-titre">Nouvelle commande</h2>
+        <button onclick="retourMenu()">← Menu</button>
+    </div>
+
+    <div class="search-zone">
+        <input type="text" id="search-input" placeholder="🔍 Rechercher un produit..." oninput="filtrerProduits()">
+        <select id="filtre-cat" onchange="filtrerProduits()">
+            <option value="">Toutes</option>
+        </select>
+    </div>
+
+    <div class="tableau-produits" id="tableau-produits"></div>
+
+    <div class="bottom-bar">
+        <div class="resume">
+            <span id="nb-produits">0</span> produit(s),
+            <strong><span id="nb-articles">0</span> article(s)</strong>
+        </div>
+        <button class="btn-envoyer" id="btn-envoyer" disabled onclick="envoyerCommande()">
+            Envoyer ✓
+        </button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  ÉCRAN 4 : MES COMMANDES                   -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="ecran-commandes" class="ecran">
+    <div class="top-bar">
+        <h2>Mes commandes</h2>
+        <button onclick="showEcran('ecran-menu')">← Menu</button>
+    </div>
+    <div id="liste-commandes" style="padding-bottom:20px;"></div>
+</div>
+
+<script>
+    let currentDA = '';
+    let catalogue = [];
+    let quantites = {};  // { code: qty }
+    let editingCmdId = null;
+
+    // ═══ NAVIGATION ═══
+    function showEcran(id) {
+        document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
+        document.getElementById(id).classList.add('actif');
+    }
+
+    function choisirDA(da) {
+        currentDA = da;
+        document.getElementById('menu-titre').textContent = da;
+        showEcran('ecran-menu');
+    }
+
+    function retourMenu() {
+        editingCmdId = null;
+        showEcran('ecran-menu');
+    }
+
+    // ═══ NOUVELLE COMMANDE ═══
+    async function ouvrirNouvelle() {
+        quantites = {};
+        editingCmdId = null;
+        document.getElementById('nouvelle-titre').textContent = 'Nouvelle commande — ' + currentDA;
+        await chargerCatalogue();
+        showEcran('ecran-nouvelle');
+    }
+
+    async function chargerCatalogue() {
+        const res = await fetch('/api/catalogue');
+        const data = await res.json();
+        if (!data.ok) return;
+        catalogue = data.produits;
+
+        // Remplir filtre catégories
+        const cats = [...new Set(catalogue.map(p => p.categorie).filter(Boolean))].sort();
+        const sel = document.getElementById('filtre-cat');
+        sel.innerHTML = '<option value="">Toutes</option>';
+        cats.forEach(c => {
+            sel.innerHTML += `<option value="${c}">${c}</option>`;
+        });
+
+        afficherProduits(catalogue);
+    }
+
+    function filtrerProduits() {
+        const search = document.getElementById('search-input').value.toLowerCase();
+        const cat = document.getElementById('filtre-cat').value;
+
+        let filtered = catalogue.filter(p => {
+            const matchSearch = !search || p.nom.toLowerCase().includes(search) || p.code.toLowerCase().includes(search);
+            const matchCat = !cat || p.categorie === cat;
+            return matchSearch && matchCat;
+        });
+
+        afficherProduits(filtered);
+    }
+
+    function afficherProduits(produits) {
+        const container = document.getElementById('tableau-produits');
+        container.innerHTML = '';
+
+        // Grouper par catégorie
+        const parCat = {};
+        produits.forEach(p => {
+            const cat = p.categorie || 'AUTRES';
+            if (!parCat[cat]) parCat[cat] = [];
+            parCat[cat].push(p);
+        });
+
+        Object.keys(parCat).sort().forEach(cat => {
+            const titre = document.createElement('div');
+            titre.className = 'cat-titre';
+            titre.textContent = cat;
+            container.appendChild(titre);
+
+            parCat[cat].forEach(p => {
+                const qty = quantites[p.code] || 0;
+                const div = document.createElement('div');
+                div.className = 'ligne-produit';
+                div.id = 'ligne-' + p.code;
+
+                const stockClass = p.stock <= 0 ? 'stock-info rupture' : 'stock-info';
+                const stockText = p.stock <= 0 ? 'RUPTURE' : 'Stock: ' + p.stock;
+
+                div.innerHTML = `
+                    <div class="info">
+                        <div class="nom">${p.nom}</div>
+                        <div class="code">${p.code}</div>
+                    </div>
+                    <div class="${stockClass}">${stockText}</div>
+                    <div class="qty-zone">
+                        <button class="qty-btn moins" onclick="changerQty('${p.code}', -1)">−</button>
+                        <input type="number" class="qty-input ${qty > 0 ? 'has-value' : ''}"
+                               id="qty-${p.code}" value="${qty}" min="0"
+                               onchange="setQty('${p.code}', this.value)"
+                               onfocus="this.select()">
+                        <button class="qty-btn plus" onclick="changerQty('${p.code}', 1)">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        });
+
+        majResume();
+    }
+
+    function changerQty(code, delta) {
+        const input = document.getElementById('qty-' + code);
+        let val = parseInt(input.value) || 0;
+        val = Math.max(0, val + delta);
+        input.value = val;
+
+        if (val > 0) {
+            quantites[code] = val;
+            input.classList.add('has-value');
+        } else {
+            delete quantites[code];
+            input.classList.remove('has-value');
+        }
+        majResume();
+    }
+
+    function setQty(code, val) {
+        val = Math.max(0, parseInt(val) || 0);
+        const input = document.getElementById('qty-' + code);
+        input.value = val;
+
+        if (val > 0) {
+            quantites[code] = val;
+            input.classList.add('has-value');
+        } else {
+            delete quantites[code];
+            input.classList.remove('has-value');
+        }
+        majResume();
+    }
+
+    function majResume() {
+        const codes = Object.keys(quantites);
+        const nbProd = codes.length;
+        const nbArt = codes.reduce((s, c) => s + quantites[c], 0);
+
+        document.getElementById('nb-produits').textContent = nbProd;
+        document.getElementById('nb-articles').textContent = nbArt;
+        document.getElementById('btn-envoyer').disabled = nbProd === 0;
+    }
+
+    // ═══ ENVOYER COMMANDE ═══
+    async function envoyerCommande() {
+        const codes = Object.keys(quantites);
+        if (codes.length === 0) return;
+
+        const produits = codes.map(code => {
+            const p = catalogue.find(x => x.code === code);
+            return { code, nom: p ? p.nom : code, quantite: quantites[code] };
+        });
+
+        let url, body;
+
+        if (editingCmdId) {
+            url = '/api/commandes_da/modifier';
+            body = { cmd_id: editingCmdId, produits };
+        } else {
+            url = '/api/commandes_da/creer';
+            body = { destination: currentDA, produits };
+        }
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+            toast(editingCmdId ? 'Commande modifiée ✓' : 'Commande envoyée ✓', 'success');
+            editingCmdId = null;
+            quantites = {};
+            showEcran('ecran-menu');
+        } else {
+            toast(data.error || 'Erreur', 'error');
+        }
+    }
+
+    // ═══ MES COMMANDES ═══
+    async function ouvrirMesCommandes() {
+        showEcran('ecran-commandes');
+        const res = await fetch('/api/commandes_da/' + currentDA);
+        const data = await res.json();
+
+        const container = document.getElementById('liste-commandes');
+        container.innerHTML = '';
+
+        if (!data.ok || data.commandes.length === 0) {
+            container.innerHTML = '<p style="text-align:center;padding:40px;color:#95a5a6;">Aucune commande</p>';
+            return;
+        }
+
+        data.commandes.forEach(cmd => {
+            const totalQty = cmd.produits.reduce((s, p) => s + p.quantite, 0);
+            const card = document.createElement('div');
+            card.className = 'commande-card';
+
+            let produitsHTML = '<table>';
+            cmd.produits.forEach(p => {
+                produitsHTML += `<tr><td>${p.nom}</td><td style="text-align:right;font-weight:bold;">×${p.quantite}</td></tr>`;
+            });
+            produitsHTML += '</table>';
+
+            const statut = cmd.statut || 'en_attente';
+            const badgeClass = statut === 'en_attente' ? 'badge' : 'badge traitee';
+            const badgeText = statut === 'en_attente' ? '⏳ En attente' : '✅ Traitée';
+
+            card.innerHTML = `
+                <div class="header" onclick="this.nextElementSibling.classList.toggle('ouvert')">
+                    <div>
+                        <div class="date">${cmd.date} — ${cmd.heure}</div>
+                        <div style="font-size:0.85em;color:#7f8c8d;">${cmd.produits.length} produit(s), ${totalQty} article(s)</div>
+                    </div>
+                    <span class="${badgeClass}">${badgeText}</span>
+                </div>
+                <div class="body">
+                    ${produitsHTML}
+                    <div class="cmd-actions">
+                        <button style="background:#f39c12;" onclick="modifierCmd('${cmd.id}')">✏️ Modifier</button>
+                        <button style="background:#e74c3c;" onclick="supprimerCmd('${cmd.id}')">🗑️ Supprimer</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    async function modifierCmd(cmdId) {
+        const res = await fetch('/api/commandes_da/' + currentDA);
+        const data = await res.json();
+        if (!data.ok) return;
+
+        const cmd = data.commandes.find(c => c.id === cmdId);
+        if (!cmd) return;
+
+        quantites = {};
+        cmd.produits.forEach(p => { quantites[p.code] = p.quantite; });
+
+        editingCmdId = cmdId;
+        document.getElementById('nouvelle-titre').textContent = '✏️ Modifier — ' + currentDA;
+        await chargerCatalogue();
+        showEcran('ecran-nouvelle');
+    }
+
+    async function supprimerCmd(cmdId) {
+        if (!confirm('Supprimer cette commande ?')) return;
+
+        const res = await fetch('/api/commandes_da/supprimer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cmd_id: cmdId })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+            toast('Supprimée ✓', 'success');
+            ouvrirMesCommandes();
+        } else {
+            toast(data.error || 'Erreur', 'error');
+        }
+    }
+
+    // ═══ TOAST ═══
+    function toast(msg, type = 'success') {
+        const div = document.createElement('div');
+        div.className = 'toast toast-' + type;
+        div.textContent = msg;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 3000);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion Stock</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── HEADER ── */
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        header h1 { font-size: 1.3rem; }
+
+        .header-dest {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1rem;
+            display: none;
+            color: white;
+        }
+        .header-dest.visible { display: block; }
+
+        .btn-shutdown {
+            background: #c0392b;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-shutdown:hover { background: #e74c3c; }
+
+        /* ── TABS ── */
+        .tabs {
+            display: flex;
+            background: white;
+            border-bottom: 2px solid #ecf0f1;
+            flex-shrink: 0;
+        }
+        .tab {
+            padding: 14px 28px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: #2c3e50; background: #f8f9fa; }
+        .tab.active { color: #2980b9; border-bottom-color: #2980b9; }
+
+        /* ── CONTENT ── */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ── SCAN ── */
+        .dest-grid {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .dest-btn {
+            width: 140px;
+            height: 80px;
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.4rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .dest-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        .scan-box {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+        }
+        .scan-input-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .scan-input-row input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .scan-input-row input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .feedback {
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            min-height: 42px;
+        }
+        .feedback.ok    { background: #d4edda; color: #155724; }
+        .feedback.error { background: #f8d7da; color: #721c24; }
+        .feedback.warn  { background: #fff3cd; color: #856404; }
+
+        /* ── PANIER ── */
+        .panier-section {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .panier-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .panier-count {
+            background: #3498db;
+            color: white;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .btn-valider {
+            margin-top: 14px;
+            width: 100%;
+            padding: 12px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-valider:hover { background: #219a52; }
+
+        /* ── STOCK TABLE ── */
+        .stock-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .stock-table th {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            color: #2c3e50;
+            font-size: 0.85rem;
+        }
+        .stock-table td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .stock-table tr:hover td { background: #f8f9fa; }
+
+        .badge-stock {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        .badge-ok    { background: #d4edda; color: #155724; }
+        .badge-warn  { background: #fff3cd; color: #856404; }
+        .badge-empty { background: #f8d7da; color: #721c24; }
+
+        .btn-arrivage {
+            padding: 4px 12px;
+            background: #f0f2f5;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #2c3e50;
+        }
+        .btn-arrivage:hover { background: #dee2e6; }
+
+        /* ══════════════════════════════════
+           ── STOCK VISUEL PAR CATÉGORIE ──
+        ══════════════════════════════════ */
+
+        /* Barre de recherche stock */
+        .stock-search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .stock-search-bar input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        .stock-search-bar input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .stock-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stock-stat-card {
+            flex: 1;
+            min-width: 120px;
+            background: white;
+            border-radius: 10px;
+            padding: 14px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            text-align: center;
+            border-top: 4px solid #dee2e6;
+        }
+        .stock-stat-card.stat-ok    { border-top-color: #27ae60; }
+        .stock-stat-card.stat-warn  { border-top-color: #f39c12; }
+        .stock-stat-card.stat-empty { border-top-color: #e74c3c; }
+        .stock-stat-card.stat-total { border-top-color: #3498db; }
+        .stat-num {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-label {
+            font-size: 0.78rem;
+            color: #7f8c8d;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Bloc catégorie */
+        .cat-block {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            margin-bottom: 18px;
+            overflow: hidden;
+        }
+        .cat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 18px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .cat-header:hover { background: #f8f9fa; }
+        .cat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .cat-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .cat-title {
+            font-weight: bold;
+            font-size: 1rem;
+            color: #2c3e50;
+        }
+        .cat-count {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            background: #f0f2f5;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+        .cat-header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .cat-mini-badges {
+            display: flex;
+            gap: 6px;
+        }
+        .cat-mini-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .cat-chev {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            transition: transform 0.2s;
+        }
+        .cat-chev.open { transform: rotate(90deg); }
+
+        .cat-body { display: none; }
+        .cat-body.open { display: block; }
+
+        /* Ligne produit */
+        .prod-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 18px;
+            border-top: 1px solid #f0f2f5;
+            gap: 12px;
+            transition: background 0.1s;
+        }
+        .prod-row:hover { background: #f8f9fa; }
+        .prod-row.hidden { display: none; }
+
+        .prod-code {
+            width: 90px;
+            flex-shrink: 0;
+            font-family: monospace;
+            font-size: 0.82rem;
+            color: #7f8c8d;
+            background: #f0f2f5;
+            padding: 2px 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .prod-nom {
+            flex: 1;
+            font-size: 0.92rem;
+            color: #2c3e50;
+        }
+        .prod-bar-wrap {
+            width: 120px;
+            flex-shrink: 0;
+        }
+        .prod-bar-bg {
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .prod-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+        .prod-bar-fill.ok    { background: #27ae60; }
+        .prod-bar-fill.warn  { background: #f39c12; }
+        .prod-bar-fill.empty { background: #e74c3c; }
+
+        .prod-qty {
+            width: 50px;
+            flex-shrink: 0;
+            text-align: center;
+        }
+        .prod-qty span {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        .prod-qty span.ok    { background: #d4edda; color: #155724; }
+        .prod-qty span.warn  { background: #fff3cd; color: #856404; }
+        .prod-qty span.empty { background: #f8d7da; color: #721c24; }
+
+        .prod-action {
+            width: 90px;
+            flex-shrink: 0;
+            text-align: right;
+        }
+
+        /* ── HISTORIQUE ── */
+        .cmd-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .cmd-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ecf0f1;
+            transition: background 0.15s;
+        }
+        .cmd-card-header:hover { background: #ecf0f1; }
+        .cmd-badge {
+            padding: 3px 12px;
+            border-radius: 20px;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .cmd-info  { color: #7f8c8d; font-size: 0.9rem; }
+        .cmd-chev  { font-size: 1.1rem; transition: transform 0.2s; color: #7f8c8d; }
+        .cmd-chev.open { transform: rotate(90deg); }
+        .cmd-detail { display: none; padding: 14px 16px; }
+        .cmd-detail.open { display: block; }
+
+        .btn-pdf {
+            margin-top: 10px;
+            padding: 8px 18px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-pdf:hover { background: #c0392b; }
+
+        /* ── FILTRES ── */
+        .filtres-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .filtres-bar input,
+        .filtres-bar select {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .filtres-bar input { flex: 1; min-width: 180px; }
+
+        /* ── MODALE ── */
+        .modale-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modale-overlay.open { display: flex; }
+        .modale-box {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            width: 360px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .modale-box h3 { margin-bottom: 12px; color: #2c3e50; }
+        .modale-box input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 16px;
+        }
+        .modale-box input:focus { outline: none; border-color: #3498db; }
+        .modale-actions { display: flex; gap: 10px; }
+        .btn-ok {
+            flex: 1;
+            padding: 10px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-ok:hover { background: #219a52; }
+        .btn-cancel {
+            flex: 1;
+            padding: 10px;
+            background: #f0f2f5;
+            color: #2c3e50;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-cancel:hover { background: #dee2e6; }
+    </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+    <h1>📦 Stock Scan</h1>
+    <span class="header-dest" id="headerDest"></span>
+    <button class="btn-shutdown" onclick="shutdown()">⏹ Arrêter</button>
+</header>
+
+<!-- ── TABS ── -->
+<div class="tabs">
+    <div class="tab active" id="tab-btn-scan"
+         onclick="switchTab('scan', this)">🔍 Scanner</div>
+    <div class="tab" id="tab-btn-stock"
+         onclick="switchTab('stock', this)">📊 Stock</div>
+    <div class="tab" id="tab-btn-histo"
+         onclick="switchTab('histo', this)">📋 Historique</div>
+</div>
+
+<div class="content">
+
+    <!-- ══ SCANNER ══ -->
+    <div id="tab-scan" class="tab-content active">
+
+        <div id="step1">
+    <div class="scan-box">
+        <h3 style="color:#2c3e50;margin-bottom:16px;">
+            📍 Choisir la destination
+        </h3>
+
+        <!-- Boutons manuels (PC) -->
+        <div id="destGrid" style="display:flex;gap:12px;flex-wrap:wrap;
+                                   margin-bottom:20px;"></div>
+
+        <!-- Séparateur -->
+        <div style="text-align:center;color:#aaa;margin:8px 0;font-size:0.85rem;">
+            — ou scanner le code destination —
+        </div>
+
+        <!-- Scan douchette destination -->
+        <div class="scan-input-row">
+            <input id="scanDestInput" type="text"
+                   placeholder="DEST:DA1 ou DEST:DA2…"
+                   onkeydown="if(event.key==='Enter') scannerDestination()">
+            <button onclick="scannerDestination()"
+                    style="padding:10px 20px;background:#2c3e50;
+                           color:white;border:none;border-radius:8px;
+                           cursor:pointer;font-size:1rem;">↵</button>
+        </div>
+        <div id="feedbackDest" class="feedback" style="margin-top:8px;"></div>
+    </div>
+</div>
+
+
+        <div id="step2" style="display:none;">
+            <div class="scan-box">
+                <div style="display:flex;justify-content:space-between;
+                            align-items:center;margin-bottom:12px;">
+                    <h3 style="color:#2c3e50;">Scanner un produit</h3>
+                    <button onclick="changerDest()"
+                            style="background:none;border:1px solid #dee2e6;
+                                   padding:6px 12px;border-radius:6px;
+                                   cursor:pointer;color:#7f8c8d;font-size:0.85rem;">
+                        ⬅ Changer
+                    </button>
+                </div>
+                <div class="scan-input-row">
+                    <input id="scanInput" type="text"
+                           placeholder="Code-barres ou code produit…"
+                           onkeydown="if(event.key==='Enter') scanner()">
+                    <button onclick="scanner()"
+                            style="padding:10px 20px;background:#3498db;
+                                   color:white;border:none;border-radius:8px;
+                                   cursor:pointer;font-size:1rem;">↵</button>
+                </div>
+                <div id="feedback" class="feedback"></div>
+            </div>
+
+            <div class="panier-section" id="panierSection" style="display:none;">
+                <div class="panier-header">
+                    <h3 style="color:#2c3e50;">🛒 Panier</h3>
+                    <span class="panier-count" id="panierCount">0 article(s)</span>
+                </div>
+                <table class="stock-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Produit</th>
+                            <th style="text-align:center;">Quantité</th>
+                        </tr>
+                    </thead>
+                    <tbody id="panierBody"></tbody>
+                </table>
+                <button class="btn-valider" onclick="validerCommande()">
+                    ✅ Valider la commande
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ STOCK ══ -->
+    <div id="tab-stock" class="tab-content">
+
+        <!-- En-tête stock -->
+        <div style="display:flex;justify-content:space-between;
+                    align-items:center;margin-bottom:16px;">
+            <h2 style="color:#2c3e50;">📊 État du stock</h2>
+            <button onclick="chargerStock()"
+                    style="padding:8px 16px;background:#3498db;color:white;
+                           border:none;border-radius:8px;cursor:pointer;">
+                🔄 Actualiser
+            </button>
+        </div>
+
+        <!-- Stats globales -->
+        <div class="stock-stats" id="stockStats"></div>
+
+        <!-- Recherche -->
+        <div class="stock-search-bar">
+            <input type="text" id="stockSearch"
+                   placeholder="🔍 Rechercher un produit ou code…"
+                   oninput="filtrerStock()">
+        </div>
+
+        <!-- Contenu catégories -->
+        <div id="stockContent">
+            <p style="color:#7f8c8d;text-align:center;padding:40px;">Chargement…</p>
+        </div>
+    </div>
+
+    <!-- ══ HISTORIQUE ══ -->
+    <div id="tab-histo" class="tab-content">
+        <div style="display:flex;justify-content:space-between;
+                    align-items:center;margin-bottom:12px;">
+            <h2 style="color:#2c3e50;">📋 Historique</h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="date" id="dateJour">
+                <button onclick="exportPDFJour()"
+                        style="padding:8px 14px;background:#e74c3c;color:white;
+                               border:none;border-radius:8px;cursor:pointer;">
+                    📄 PDF du jour
+                </button>
+            </div>
+        </div>
+
+        <div class="filtres-bar">
+            <input type="text" id="searchHisto"
+                   placeholder="🔍 Rechercher commande, produit…"
+                   oninput="filtrerHistorique()">
+            <select id="filterDest" onchange="filtrerHistorique()">
+                <option value="">Toutes destinations</option>
+            </select>
+        </div>
+
+        <div id="historiqueList">
+            <p style="color:#7f8c8d;text-align:center;padding:40px;">Chargement…</p>
+        </div>
+    </div>
+
+</div><!-- /content -->
+
+<!-- ── MODALE ARRIVAGE ── -->
+<div class="modale-overlay" id="modaleArrivage">
+    <div class="modale-box">
+        <h3>📦 Arrivage stock</h3>
+        <p id="arrivageNom"
+           style="margin-bottom:12px;color:#7f8c8d;font-size:0.9rem;"></p>
+        <input type="number" id="arrivageQty"
+               placeholder="Quantité reçue" min="1">
+        <div class="modale-actions">
+            <button class="btn-ok"     onclick="confirmerArrivage()">✅ Confirmer</button>
+            <button class="btn-cancel" onclick="fermerArrivage()">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const DESTINATIONS = {{ destinations | tojson }};
+const DEST_COLORS  = {{ dest_colors  | tojson }};
+
+const CAT_COLORS = [
+    '#3498db','#9b59b6','#27ae60','#e67e22',
+    '#e74c3c','#1abc9c','#f39c12','#2980b9',
+    '#8e44ad','#16a085','#d35400','#c0392b'
+];
+
+let destination    = null;
+let panier         = {};
+let historiqueData = [];
+let arrivageCode   = null;
+let stockData      = [];
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    const grid = document.getElementById('destGrid');
+    DESTINATIONS.forEach(dest => {
+        const btn = document.createElement('button');
+        btn.className        = 'dest-btn';
+        btn.style.background = DEST_COLORS[dest] || '#2980b9';
+        btn.textContent      = dest;
+        btn.onclick          = () => choisirDest(dest);
+        grid.appendChild(btn);
+    });
+
+    const sel = document.getElementById('filterDest');
+    DESTINATIONS.forEach(dest => {
+        const opt = document.createElement('option');
+        opt.value       = dest;
+        opt.textContent = dest;
+        sel.appendChild(opt);
+    });
+
+    document.getElementById('dateJour').value =
+        new Date().toISOString().split('T')[0];
+
+    setTimeout(() => {
+        const s = document.getElementById('scanDestInput');
+        if (s) s.focus();
+    }, 100);
+});
+
+// ════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════
+function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'stock') chargerStock();
+    if (name === 'histo') chargerHistorique();
+    if (name === 'scan' && destination) focusScan();
+}
+
+// ════════════════════════════════════════════════
+//  DESTINATION
+// ════════════════════════════════════════════════
+function choisirDest(dest) {
+    destination = dest;
+    const hd = document.getElementById('headerDest');
+    hd.textContent      = '▶ ' + dest;
+    hd.className        = 'header-dest visible';
+    hd.style.background = DEST_COLORS[dest] || '#2980b9';
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    focusScan();
+}
+
+function changerDest() {
+    destination = null;
+    panier      = {};
+
+    const hd = document.getElementById('headerDest');
+    hd.className  = 'header-dest';
+    hd.textContent = '';
+
+    document.getElementById('step2').style.display  = 'none';
+    document.getElementById('step1').style.display  = 'block';
+    document.getElementById('feedback').className   = 'feedback';
+    document.getElementById('feedback').textContent = '';
+    majPanier();
+
+    const scanDest = document.getElementById('scanDestInput');
+    if (scanDest) { scanDest.value = ''; scanDest.focus(); }
+}
+
+function scannerDestination() {
+    const input = document.getElementById('scanDestInput');
+    const code  = input.value.trim().toUpperCase();
+    input.value = '';
+
+    if (code.startsWith('DEST:')) {
+        const dest = code.replace('DEST:', '');
+        if (DESTINATIONS.includes(dest)) {
+            choisirDest(dest);
+        } else {
+            const fb = document.getElementById('feedbackDest');
+            fb.className   = 'feedback error';
+            fb.textContent = `❌ Destination inconnue : ${dest}`;
+        }
+    } else if (DESTINATIONS.includes(code)) {
+        choisirDest(code);
+    } else {
+        const fb = document.getElementById('feedbackDest');
+        fb.className   = 'feedback error';
+        fb.textContent = `❌ Format invalide. Exemple : DEST:DA1`;
+    }
+}
+
+// ════════════════════════════════════════════════
+//  FOCUS
+// ════════════════════════════════════════════════
+function focusScan() {
+    const input = document.getElementById('scanInput');
+    if (input) { input.value = ''; input.focus(); }
+}
+
+// ════════════════════════════════════════════════
+//  SCANNER — FONCTION PRINCIPALE
+// ════════════════════════════════════════════════
+function scanner() {
+    const input = document.getElementById('scanInput');
+    const code  = input.value.trim().toUpperCase();
+    input.value = '';
+    if (!code) return;
+
+    // ── Destination ──────────────────────────────
+    if (code.startsWith('DEST:')) {
+        const dest = code.replace('DEST:', '');
+        if (DESTINATIONS.includes(dest)) {
+            choisirDest(dest);
+        } else {
+            afficherFeedback('error', `❌ Destination inconnue : ${dest}`);
+            focusScan();
+        }
+        return;
+    }
+
+    // ── Actions spéciales ─────────────────────────
+    if (code === 'ACTION:VALIDER' || code === 'FIN') {
+        if (!destination) {
+            afficherFeedback('error', '❌ Aucune destination sélectionnée');
+            focusScan();
+            return;
+        }
+        if (Object.keys(panier).length === 0) {
+            afficherFeedback('error', '❌ Panier vide — rien à valider');
+            focusScan();
+            return;
+        }
+        validerCommande();
+        return;
+    }
+
+    if (code === 'ACTION:VIDER') {
+        panier = {};
+        majPanier();
+        afficherFeedback('ok', '🗑️ Panier vidé');
+        focusScan();
+        return;
+    }
+
+    if (code === 'ACTION:RESET_DEST' || code === 'ANNULER') {
+        changerDest();
+        return;
+    }
+
+    // ── Produit normal ────────────────────────────
+    if (!destination) {
+        afficherFeedback('error', '❌ Scannez d\'abord une destination');
+        focusScan();
+        return;
+    }
+
+    fetch('/scanner', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({ destination, code })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.ok) {
+            afficherFeedback('error', `❌ ${data.error}`);
+            focusScan();
+            return;
+        }
+
+        if (panier[data.code]) {
+            panier[data.code].quantite += 1;
+        } else {
+            panier[data.code] = { nom: data.nom, quantite: 1 };
+        }
+
+        const stockMsg = data.warning
+            ? ` ⚠️ Stock bas (${data.stock})`
+            : ` — Stock : ${data.stock}`;
+
+        afficherFeedback(
+            data.warning ? 'warn' : 'ok',
+            `✅ ${data.nom}${stockMsg}`
+        );
+        majPanier();
+        focusScan();
+    });
+}
+
+// ════════════════════════════════════════════════
+//  PANIER
+// ════════════════════════════════════════════════
+function majPanier() {
+    const keys    = Object.keys(panier);
+    const section = document.getElementById('panierSection');
+    const tbody   = document.getElementById('panierBody');
+    const count   = document.getElementById('panierCount');
+
+    if (keys.length === 0) { section.style.display = 'none'; return; }
+
+    section.style.display = 'block';
+    tbody.innerHTML = keys.map(code => `
+        <tr>
+            <td><code>${code}</code></td>
+            <td>${panier[code].nom}</td>
+            <td style="text-align:center;">
+                <span style="background:${DEST_COLORS[destination]||'#2980b9'};
+                             color:white;padding:2px 10px;
+                             border-radius:12px;font-weight:bold;">
+                    ${panier[code].quantite}
+                </span>
+            </td>
+        </tr>
+    `).join('');
+
+    const total = keys.reduce((s, k) => s + panier[k].quantite, 0);
+    count.textContent = total + ' article(s)';
+}
+
+// ════════════════════════════════════════════════
+//  VALIDER COMMANDE
+// ════════════════════════════════════════════════
+function validerCommande() {
+    if (Object.keys(panier).length === 0) return;
+
+    afficherFeedback('ok', '⏳ Validation en cours…');
+
+    fetch('/valider_commande', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({ destination, panier })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            afficherFeedback('ok', `✅ Commande ${data.cmd_id} validée ! Retour…`);
+            setTimeout(() => changerDest(), 2000);
+        } else {
+            afficherFeedback('error', '❌ Erreur : ' + data.error);
+        }
+    });
+}
+
+// ════════════════════════════════════════════════
+//  FEEDBACK
+// ════════════════════════════════════════════════
+function afficherFeedback(type, message) {
+    const fb = document.getElementById('feedback');
+    const classes = { ok: 'feedback ok', warn: 'feedback warn', error: 'feedback error' };
+    fb.className   = classes[type] || 'feedback';
+    fb.textContent = message;
+}
+
+// ════════════════════════════════════════════════
+//  STOCK
+// ════════════════════════════════════════════════
+function chargerStock() {
+    fetch('/stock_info')
+    .then(r => r.json())
+    .then(data => {
+        stockData = data.stock || [];
+        afficherStock(stockData);
+    });
+}
+
+function filtrerStock() {
+    const q = document.getElementById('stockSearch').value.toLowerCase().trim();
+    if (!q) { afficherStock(stockData); return; }
+    const filtered = stockData.filter(p =>
+        p.nom.toLowerCase().includes(q) ||
+        p.code.toLowerCase().includes(q) ||
+        (p.categorie || '').toLowerCase().includes(q)
+    );
+    afficherStock(filtered);
+}
+
+function afficherStock(stock) {
+    const container = document.getElementById('stockContent');
+    const statsDiv  = document.getElementById('stockStats');
+
+    if (!stock || stock.length === 0) {
+        container.innerHTML =
+            '<p style="color:#7f8c8d;text-align:center;padding:40px;">Aucun produit</p>';
+        statsDiv.innerHTML = '';
+        return;
+    }
+
+    const nbOk    = stock.filter(p => p.stock > 5).length;
+    const nbWarn  = stock.filter(p => p.stock > 0 && p.stock <= 5).length;
+    const nbEmpty = stock.filter(p => p.stock <= 0).length;
+    statsDiv.innerHTML = `
+        <div class="stock-stat-card stat-total">
+            <div class="stat-num">${stock.length}</div>
+            <div class="stat-label">Produits</div>
+        </div>
+        <div class="stock-stat-card stat-ok">
+            <div class="stat-num">${nbOk}</div>
+            <div class="stat-label">✅ En stock</div>
+        </div>
+        <div class="stock-stat-card stat-warn">
+            <div class="stat-num">${nbWarn}</div>
+            <div class="stat-label">⚠️ Stock bas</div>
+        </div>
+        <div class="stock-stat-card stat-empty">
+            <div class="stat-num">${nbEmpty}</div>
+            <div class="stat-label">❌ Épuisé</div>
+        </div>`;
+
+    const cats = {};
+    stock.forEach(p => {
+        const cat = p.categorie || 'Sans catégorie';
+        if (!cats[cat]) cats[cat] = [];
+        cats[cat].push(p);
+    });
+
+    const maxStock = Math.max(...stock.map(p => p.stock), 1);
+    let catIndex = 0;
+
+    container.innerHTML = Object.entries(cats).map(([catName, produits]) => {
+        const color = CAT_COLORS[catIndex % CAT_COLORS.length];
+        catIndex++;
+        const catId = 'cat-' + catName.replace(/\s+/g, '_');
+
+        const cOk    = produits.filter(p => p.stock > 5).length;
+        const cWarn  = produits.filter(p => p.stock > 0 && p.stock <= 5).length;
+        const cEmpty = produits.filter(p => p.stock <= 0).length;
+
+        const miniBadges = [
+            cOk    ? `<span class="cat-mini-badge badge-ok">${cOk} OK</span>`        : '',
+            cWarn  ? `<span class="cat-mini-badge badge-warn">${cWarn} bas</span>`    : '',
+            cEmpty ? `<span class="cat-mini-badge badge-empty">${cEmpty} vide</span>` : ''
+        ].join('');
+
+        const lignes = produits.map(p => {
+            let etat = 'ok';
+            if (p.stock <= 0)      etat = 'empty';
+            else if (p.stock <= 5) etat = 'warn';
+            const pct = Math.min(100, Math.round((p.stock / maxStock) * 100));
+            return `
+            <div class="prod-row">
+                <span class="prod-code">${p.code}</span>
+                <span class="prod-nom">${p.nom}</span>
+                <div class="prod-bar-wrap">
+                    <div class="prod-bar-bg">
+                        <div class="prod-bar-fill ${etat}" style="width:${pct}%"></div>
+                    </div>
+                </div>
+                <div class="prod-qty"><span class="${etat}">${p.stock}</span></div>
+                <div class="prod-action">
+                    <button class="btn-arrivage"
+                            onclick="ouvrirArrivage('${p.code}','${p.nom}')">
+                        + Arrivage
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+
+        return `
+        <div class="cat-block">
+            <div class="cat-header" onclick="toggleCat('${catId}')">
+                <div class="cat-header-left">
+                    <div class="cat-dot" style="background:${color};"></div>
+                    <span class="cat-title">${catName}</span>
+                    <span class="cat-count">${produits.length} produit${produits.length>1?'s':''}</span>
+                </div>
+                <div class="cat-header-right">
+                    <div class="cat-mini-badges">${miniBadges}</div>
+                    <span class="cat-chev open" id="chev-${catId}">▶</span>
+                </div>
+            </div>
+            <div class="cat-body open" id="${catId}">${lignes}</div>
+        </div>`;
+    }).join('');
+}
+
+function toggleCat(catId) {
+    document.getElementById(catId).classList.toggle('open');
+    document.getElementById('chev-' + catId).classList.toggle('open');
+}
+
+// ════════════════════════════════════════════════
+//  ARRIVAGE
+// ════════════════════════════════════════════════
+function ouvrirArrivage(code, nom) {
+    arrivageCode = code;
+    document.getElementById('arrivageNom').textContent = nom + ' (' + code + ')';
+    document.getElementById('arrivageQty').value = '';
+    document.getElementById('modaleArrivage').classList.add('open');
+    setTimeout(() => document.getElementById('arrivageQty').focus(), 100);
+}
+
+function fermerArrivage() {
+    document.getElementById('modaleArrivage').classList.remove('open');
+    arrivageCode = null;
+}
+
+function confirmerArrivage() {
+    const qty = parseInt(document.getElementById('arrivageQty').value);
+    if (!qty || qty <= 0) { alert('Quantité invalide'); return; }
+
+    fetch('/arrivage', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({ code: arrivageCode, quantite: qty })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) { fermerArrivage(); chargerStock(); }
+        else { alert('Erreur : ' + data.error); }
+    });
+}
+
+document.getElementById('modaleArrivage').addEventListener('click', function(e) {
+    if (e.target === this) fermerArrivage();
+});
+
+// ════════════════════════════════════════════════
+//  HISTORIQUE
+// ════════════════════════════════════════════════
+function chargerHistorique() {
+    fetch('/stock_info')
+    .then(r => r.json())
+    .then(data => {
+        historiqueData = data.historique;
+        afficherHistorique(historiqueData);
+    });
+}
+
+function filtrerHistorique() {
+    const q    = document.getElementById('searchHisto').value.toLowerCase();
+    const dest = document.getElementById('filterDest').value;
+
+    const filtered = historiqueData.filter(c => {
+        const matchDest = !dest || c.destination === dest;
+        const matchQ    = !q
+            || c.id.toLowerCase().includes(q)
+            || c.destination.toLowerCase().includes(q)
+            || c.produits.some(p =>
+                p.nom.toLowerCase().includes(q) ||
+                p.code.toLowerCase().includes(q));
+        return matchDest && matchQ;
+    });
+    afficherHistorique(filtered);
+}
+
+function afficherHistorique(commandes) {
+    const container = document.getElementById('historiqueList');
+    if (commandes.length === 0) {
+        container.innerHTML =
+            '<p style="color:#7f8c8d;text-align:center;padding:40px;">Aucune commande trouvée</p>';
+        return;
+    }
+
+    container.innerHTML = commandes.map(c => {
+        const color = DEST_COLORS[c.destination] || '#2980b9';
+        return `
+        <div class="cmd-card">
+            <div class="cmd-card-header" onclick="toggleCmd('${c.id}')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="cmd-badge" style="background:${color};">${c.destination}</span>
+                    <span style="font-weight:bold;color:#2c3e50;">${c.id}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <span class="cmd-info">${c.date} ${c.heure} · ${c.nb_articles} art.</span>
+                    <span class="cmd-chev" id="chev-${c.id}">▶</span>
+                </div>
+            </div>
+            <div class="cmd-detail" id="detail-${c.id}">
+                <table class="stock-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th><th>Produit</th>
+                            <th style="text-align:center;">Qté</th>
+                            <th style="text-align:center;">Stock après</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${c.produits.map(p => `
+                        <tr>
+                            <td><code>${p.code}</code></td>
+                            <td>${p.nom}</td>
+                            <td style="text-align:center;">${p.quantite}</td>
+                            <td style="text-align:center;">${p.stock_apres}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                <button class="btn-pdf" onclick="exportPDF('${c.id}')">
+                    📄 Télécharger PDF
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleCmd(id) {
+    document.getElementById('detail-' + id).classList.toggle('open');
+    document.getElementById('chev-'   + id).classList.toggle('open');
+}
+
+function exportPDF(cmdId) {
+    window.open('/export_pdf/' + cmdId, '_blank');
+}
+
+function exportPDFJour() {
+    const date = document.getElementById('dateJour').value;
+    if (!date) { alert('Choisissez une date'); return; }
+    window.open('/export_pdf_jour/' + date, '_blank');
+}
+
+function shutdown() {
+    if (confirm('Arrêter le serveur ?')) {
+        fetch('/shutdown', { method: 'POST' });
+    }
+}
+</script>
+
+</body>
+</html>
