@@ -1,6 +1,6 @@
 from flask import Flask
 from config import DATABASE_URL
-from models import db, Produit, Historique
+from models import db, Produit, Historique, CommandeDA
 from routes import bp
 
 app = Flask(__name__)
@@ -155,7 +155,6 @@ def init_db_if_empty():
 
         print(f"✅ {len(produits)} produits importés")
 
-        # Historique
         historique_data = [
             ("CMD-20260224-105500", "2026-02-24", "10:55:00", "DA1", "50COCA", "COCA COLA 50CL *24", 2, 0),
             ("CMD-20260224-105500", "2026-02-24", "10:55:00", "DA1", "SUCSEM", "SUCRE SEMOULE D.A. 2KG *6", 1, 0),
