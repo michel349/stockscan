@@ -1,0 +1,500 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Stock Scan</title>
+<HTA:APPLICATION
+    APPLICATIONNAME="Stock Scan"
+    BORDER="thin"
+    BORDERSTYLE="normal"
+    CAPTION="yes"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="no"
+    SYSMENU="no"
+    WINDOWSTATE="maximize"
+/>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+        background: #1a1a2e;
+        font-family: Arial, sans-serif;
+        color: white;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    /* BOUTON FERMER */
+    .btn_fermer {
+        position: fixed;
+        top: 15px;
+        right: 20px;
+        background: #ff4444;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        font-size: 18px;
+        cursor: pointer;
+        z-index: 999;
+        line-height: 35px;
+        text-align: center;
+    }
+
+    .btn_fermer:hover {
+        background: #cc0000;
+    }
+
+    /* HEADER */
+    .header {
+        background: #16213e;
+        padding: 20px 40px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        border-bottom: 2px solid #00d4ff;
+    }
+
+    .header_logo {
+        font-size: 35px;
+    }
+
+    .header_titre {
+        font-size: 24px;
+        font-weight: bold;
+        color: #00d4ff;
+    }
+
+    .header_sous_titre {
+        font-size: 12px;
+        color: #888;
+    }
+
+    .header_version {
+        margin-left: auto;
+        font-size: 12px;
+        color: #555;
+    }
+
+    /* CONTENU PRINCIPAL */
+    .contenu {
+        display: flex;
+        height: calc(100vh - 80px);
+    }
+
+    /* PANNEAU GAUCHE */
+    .panneau_gauche {
+        width: 280px;
+        background: #16213e;
+        padding: 30px 20px;
+        border-right: 1px solid #333;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .section_titre {
+        font-size: 11px;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 5px;
+    }
+
+    .info_carte {
+        background: #1a1a2e;
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 15px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .info_carte_icone {
+        font-size: 22px;
+    }
+
+    .info_carte_label {
+        font-size: 11px;
+        color: #888;
+    }
+
+    .info_carte_valeur {
+        font-size: 14px;
+        font-weight: bold;
+        color: white;
+    }
+
+    .separateur {
+        height: 1px;
+        background: #333;
+        margin: 5px 0;
+    }
+
+    .etape {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #555;
+        transition: all 0.3s;
+    }
+
+    .etape.active {
+        color: #00d4ff;
+        background: rgba(0, 212, 255, 0.05);
+    }
+
+    .etape.done {
+        color: #00ff88;
+    }
+
+    .etape_point {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #333;
+        flex-shrink: 0;
+    }
+
+    .etape.active .etape_point {
+        background: #00d4ff;
+        box-shadow: 0 0 8px #00d4ff;
+    }
+
+    .etape.done .etape_point {
+        background: #00ff88;
+    }
+
+    /* PANNEAU DROIT - CENTRE */
+    .panneau_centre {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 30px;
+        padding: 40px;
+    }
+
+    .grand_logo {
+        font-size: 80px;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    .titre_principal {
+        font-size: 36px;
+        font-weight: bold;
+        color: white;
+        text-align: center;
+    }
+
+    .titre_principal span {
+        color: #00d4ff;
+    }
+
+    .message_chargement {
+        font-size: 15px;
+        color: #aaa;
+        text-align: center;
+        min-height: 25px;
+    }
+
+    .barre_fond {
+        width: 400px;
+        height: 10px;
+        background: #333;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .barre_progression {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #00d4ff, #0077ff);
+        border-radius: 10px;
+        transition: width 0.1s;
+    }
+
+    .pourcentage {
+        font-size: 28px;
+        font-weight: bold;
+        color: #00d4ff;
+    }
+
+    /* PANNEAU DROIT - STATS */
+    .panneau_droite {
+        width: 250px;
+        background: #16213e;
+        padding: 30px 20px;
+        border-left: 1px solid #333;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .stat_carte {
+        background: #1a1a2e;
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 20px 15px;
+        text-align: center;
+    }
+
+    .stat_carte_icone {
+        font-size: 28px;
+        margin-bottom: 8px;
+    }
+
+    .stat_carte_valeur {
+        font-size: 22px;
+        font-weight: bold;
+        color: #00d4ff;
+        margin-bottom: 4px;
+    }
+
+    .stat_carte_label {
+        font-size: 11px;
+        color: #888;
+    }
+
+    /* FOOTER */
+    .footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        background: #16213e;
+        border-top: 1px solid #333;
+        padding: 8px 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: #555;
+    }
+
+    .footer_status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .point_status {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ff4444;
+    }
+
+    .point_status.actif {
+        background: #00ff88;
+        box-shadow: 0 0 6px #00ff88;
+    }
+</style>
+</head>
+<body>
+
+<!-- BOUTON FERMER -->
+<button class="btn_fermer" onclick="FermerApp()">✕</button>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="header_logo">📦</div>
+    <div>
+        <div class="header_titre">Stock Scan</div>
+        <div class="header_sous_titre">Système de gestion de stock</div>
+    </div>
+    <div class="header_version">v1.0.0</div>
+</div>
+
+<!-- CONTENU -->
+<div class="contenu">
+
+    <!-- PANNEAU GAUCHE -->
+    <div class="panneau_gauche">
+        <div class="section_titre">Informations</div>
+
+        <div class="info_carte">
+            <div class="info_carte_icone">🖥️</div>
+            <div>
+                <div class="info_carte_label">Serveur</div>
+                <div class="info_carte_valeur">localhost:5000</div>
+            </div>
+        </div>
+
+        <div class="info_carte">
+            <div class="info_carte_icone">🐍</div>
+            <div>
+                <div class="info_carte_label">Technologie</div>
+                <div class="info_carte_valeur">Python Flask</div>
+            </div>
+        </div>
+
+        <div class="info_carte">
+            <div class="info_carte_icone">📁</div>
+            <div>
+                <div class="info_carte_label">Répertoire</div>
+                <div class="info_carte_valeur">ScanDa</div>
+            </div>
+        </div>
+
+        <div class="separateur"></div>
+        <div class="section_titre">Étapes</div>
+
+        <div class="etape" id="etape1">
+            <div class="etape_point"></div>
+            Démarrage du serveur
+        </div>
+        <div class="etape" id="etape2">
+            <div class="etape_point"></div>
+            Chargement des données
+        </div>
+        <div class="etape" id="etape3">
+            <div class="etape_point"></div>
+            Connexion à la base
+        </div>
+        <div class="etape" id="etape4">
+            <div class="etape_point"></div>
+            Ouverture navigateur
+        </div>
+    </div>
+
+    <!-- PANNEAU CENTRE -->
+    <div class="panneau_centre">
+        <div class="grand_logo">📦</div>
+        <div class="titre_principal">Bienvenue sur <span>Stock Scan</span></div>
+        <div class="pourcentage" id="pourcentage">0%</div>
+        <div class="barre_fond">
+            <div class="barre_progression" id="barre"></div>
+        </div>
+        <div class="message_chargement" id="message">Démarrage...</div>
+    </div>
+
+    <!-- PANNEAU DROITE -->
+    <div class="panneau_droite">
+        <div class="section_titre">Système</div>
+
+        <div class="stat_carte">
+            <div class="stat_carte_icone">⚡</div>
+            <div class="stat_carte_valeur" id="temps">0s</div>
+            <div class="stat_carte_label">Temps de démarrage</div>
+        </div>
+
+        <div class="stat_carte">
+            <div class="stat_carte_icone">📊</div>
+            <div class="stat_carte_valeur">Flask</div>
+            <div class="stat_carte_label">Framework</div>
+        </div>
+
+        <div class="stat_carte">
+            <div class="stat_carte_icone">🔒</div>
+            <div class="stat_carte_valeur">Local</div>
+            <div class="stat_carte_label">Mode réseau</div>
+        </div>
+
+        <div class="stat_carte">
+            <div class="stat_carte_icone">💾</div>
+            <div class="stat_carte_valeur">SQLite</div>
+            <div class="stat_carte_label">Base de données</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+    <div class="footer_status">
+        <div class="point_status" id="point_status"></div>
+        <span id="footer_message">En attente...</span>
+    </div>
+    <div>Stock Scan © 2024</div>
+</div>
+
+<script language="VBScript">
+    Dim progression
+    Dim secondes
+    progression = 0
+    secondes = 0
+
+    Sub DemarrerChargement()
+        Call Charger()
+        Call CompterTemps()
+    End Sub
+
+    Sub CompterTemps()
+        secondes = secondes + 1
+        document.getElementById("temps").innerHTML = secondes & "s"
+        If progression <= 100 Then
+            window.setTimeout "CompterTemps()", 1000
+        End If
+    End Sub
+
+    Sub Charger()
+        If progression < 25 Then
+            document.getElementById("message").innerHTML = "Démarrage du serveur Python..."
+            document.getElementById("etape1").className = "etape active"
+            document.getElementById("footer_message").innerHTML = "Démarrage du serveur..."
+        ElseIf progression < 50 Then
+            document.getElementById("message").innerHTML = "Chargement des données..."
+            document.getElementById("etape1").className = "etape done"
+            document.getElementById("etape2").className = "etape active"
+            document.getElementById("footer_message").innerHTML = "Chargement en cours..."
+        ElseIf progression < 75 Then
+            document.getElementById("message").innerHTML = "Connexion à la base de données..."
+            document.getElementById("etape2").className = "etape done"
+            document.getElementById("etape3").className = "etape active"
+            document.getElementById("footer_message").innerHTML = "Connexion base de données..."
+        ElseIf progression < 100 Then
+            document.getElementById("message").innerHTML = "Ouverture du navigateur..."
+            document.getElementById("etape3").className = "etape done"
+            document.getElementById("etape4").className = "etape active"
+            document.getElementById("footer_message").innerHTML = "Presque prêt..."
+        Else
+            document.getElementById("message").innerHTML = "C'est parti !"
+            document.getElementById("etape4").className = "etape done"
+            document.getElementById("point_status").className = "point_status actif"
+            document.getElementById("footer_message").innerHTML = "Serveur démarré avec succès !"
+        End If
+
+        document.getElementById("barre").style.width = progression & "%"
+        document.getElementById("pourcentage").innerHTML = progression & "%"
+        progression = progression + 2
+
+        If progression <= 100 Then
+            window.setTimeout "Charger()", 80
+        Else
+            Dim oShell
+            Set oShell = CreateObject("WScript.Shell")
+            oShell.Run "cmd /c cd /d C:\Users\stock\Documents\ScanDa && python app.py", 0, False
+            window.setTimeout "OuvrirNavigateur()", 3000
+        End If
+    End Sub
+
+    Sub OuvrirNavigateur()
+        Dim oShell
+        Set oShell = CreateObject("WScript.Shell")
+        oShell.Run "http://localhost:5000"
+        window.close
+    End Sub
+
+    Sub FermerApp()
+        Dim oShell
+        Set oShell = CreateObject("WScript.Shell")
+        oShell.Run "cmd /c taskkill /f /im python.exe", 0, False
+        window.close
+    End Sub
+
+    Call DemarrerChargement()
+</script>
+
+</body>
+</html>

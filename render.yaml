@@ -1,0 +1,17 @@
+databases:
+  - name: stockscan-db
+    plan: free
+    databaseName: stockscan
+
+services:
+  - type: web
+    name: stockscan
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stockscan-db
+          property: connectionString
