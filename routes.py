@@ -144,6 +144,29 @@ def commandes_da():
         dest_colors=DEST_COLORS_HEX
     )
 
+@bp.route('/api/commandes_da/<cmd_id>')
+def api_commande_da_detail(cmd_id):
+    rows = CommandeDA.query.filter_by(cmd_id=cmd_id).all()
+    if not rows:
+        return jsonify({'ok': False, 'error': 'Commande introuvable'}), 404
+    
+    commande = {
+        'id':          rows[0].cmd_id,
+        'date':        rows[0].date,
+        'heure':       rows[0].heure,
+        'destination': rows[0].destination,
+        'statut':      rows[0].statut,
+        'produits':    [],
+    }
+    for r in rows:
+        commande['produits'].append({
+            'code':     r.code,
+            'nom':      r.nom,
+            'quantite': r.quantite,
+        })
+    
+    return jsonify(commande)
+
 
 # ══════════════════════════════════════════════════════════════
 #  SCANNER
