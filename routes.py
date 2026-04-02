@@ -1,21 +1,24 @@
 from flask import Blueprint, render_template, request, jsonify, send_file
 from datetime import datetime
-
-from config import DESTINATIONS, DEST_COLORS_HEX
-from models import db, Produit, Historique, CommandeDA
-from pdf import generate_commande_pdf, generate_journalier_pdf
-
-# Ajoute ces imports en haut
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
-from config import DESTINATIONS, DEST_COLORS_HEX, MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE, MAIL_DESTINATAIRE
 
+from config import (
+    DESTINATIONS, DEST_COLORS_HEX,
+    MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE, MAIL_DESTINATAIRE
+)
+from models import db, Produit, Historique, CommandeDA
+from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf
 
 bp = Blueprint('main', __name__)
 
+
+# ══════════════════════════════════════════════════════════════
+#  HELPERS
+# ══════════════════════════════════════════════════════════════
 
 def normalise_code(code):
     c = str(code).strip()
@@ -32,31 +35,98 @@ def nouvelle_commande_id():
 
 
 def load_historique():
-    """Regroupe les lignes historique par commande."""
-    rows = Historique.query.order_by(Historique.date.desc(), Historique.heure.desc()).all()
+    rows = Historique.query.order_by(
+        Historique.date.desc(), Historique.heure.desc()
+    ).all()
     commandes = {}
     for r in rows:
         if r.cmd_id not in commandes:
             commandes[r.cmd_id] = {
-                'id': r.cmd_id,
-                'date': r.date,
-                'heure': r.heure,
+                'id':          r.cmd_id,
+                'date':        r.date,
+                'heure':       r.heure,
                 'destination': r.destination,
-                'produits': [],
+                'produits':    [],
                 'nb_articles': 0,
             }
         commandes[r.cmd_id]['produits'].append({
-            'code': r.code,
-            'nom': r.nom,
-            'quantite': r.quantite,
+            'code':        r.code,
+            'nom':         r.nom,
+            'quantite':    r.quantite,
             'stock_apres': r.stock_apres,
         })
         commandes[r.cmd_id]['nb_articles'] += r.quantite
 
-    return sorted(commandes.values(), key=lambda c: (c['date'], c['heure']), reverse=True)
+    return sorted(
+        commandes.values(),
+        key=lambda c: (c['date'], c['heure']),
+        reverse=True
+    )
 
 
-# ── Page principale ───────────────────────────────────────────
+def envoyer_mail_commande(commande, action="nouvelle"):
+    """Envoie le PDF de la commande DA par mail."""
+    if not MAIL_EXPEDITEUR or not MAIL_DESTINATAIRE:
+        print("⚠️  Mail non configuré, envoi ignoré")
+        return
+
+    try:
+        # ── Sujet & corps ────────────────────────────────────
+        action_label = {
+            'nouvelle': 'NOUVELLE COMMANDE',
+            'modifiée': 'COMMANDE MODIFIÉE',
+        }.get(action, action.upper())
+
+        sujet = f"[{action_label}] {commande['id']} — {commande['destination']}"
+
+        corps_lignes = [
+            f"Commande   : {commande['id']}",
+            f"Destination: {commande['destination']}",
+            f"Date       : {commande['date']} à {commande['heure']}",
+            f"Action     : {action}",
+            "",
+            "Produits :",
+        ]
+        for p in commande['produits']:
+            corps_lignes.append(
+                f"  - {p.get('nom', '')} ({p.get('code', '')}) x{p.get('quantite', 0)}"
+            )
+        corps = "\n".join(corps_lignes)
+
+        # ── Génération PDF ───────────────────────────────────
+        pdf_buffer = generate_commande_da_pdf(commande)
+
+        # ── Construction du mail ─────────────────────────────
+        msg = MIMEMultipart()
+        msg['From']    = MAIL_EXPEDITEUR
+        msg['To']      = MAIL_DESTINATAIRE
+        msg['Subject'] = sujet
+        msg.attach(MIMEText(corps, 'plain', 'utf-8'))
+
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(pdf_buffer.read())
+        encoders.encode_base64(part)
+        part.add_header(
+            'Content-Disposition',
+            f'attachment; filename="commande_{commande["id"]}.pdf"'
+        )
+        msg.attach(part)
+
+        # ── Envoi SMTP Gmail ─────────────────────────────────
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
+            smtp.send_message(msg)
+
+        print(f"✅ Mail envoyé pour {commande['id']} ({action})")
+
+    except Exception as e:
+        print(f"❌ Erreur envoi mail : {e}")
+
+
+# ══════════════════════════════════════════════════════════════
+#  PAGES
+# ══════════════════════════════════════════════════════════════
+
 @bp.route('/')
 def index():
     return render_template(
@@ -64,227 +134,6 @@ def index():
         destinations=DESTINATIONS,
         dest_colors=DEST_COLORS_HEX
     )
-
-
-# ── Scanner ───────────────────────────────────────────────────
-@bp.route('/scanner', methods=['POST'])
-def scanner():
-    data = request.json
-    destination = data.get('destination')
-    code = normalise_code(data.get('code', ''))
-
-    if not destination or destination not in DESTINATIONS:
-        return jsonify({'ok': False, 'error': 'Destination invalide'})
-
-    produit = Produit.query.get(code)
-    if not produit:
-        return jsonify({'ok': False, 'error': f'Code {code} introuvable'})
-
-    return jsonify({
-        'ok': True,
-        'code': code,
-        'nom': produit.nom,
-        'stock': produit.stock,
-        'warning': produit.stock <= 0
-    })
-
-
-# ── Valider commande ──────────────────────────────────────────
-@bp.route('/valider_commande', methods=['POST'])
-def valider_commande():
-    data = request.json
-    destination = data.get('destination')
-    panier = data.get('panier', {})
-
-    if not destination or not panier:
-        return jsonify({'ok': False, 'error': 'Données manquantes'})
-    if destination not in DESTINATIONS:
-        return jsonify({'ok': False, 'error': 'Destination invalide'})
-
-    cmd_id = nouvelle_commande_id()
-    now = datetime.now()
-
-    for code, p in panier.items():
-        code = normalise_code(code)
-        nom = p['nom']
-        quantite = p['quantite']
-
-        produit = Produit.query.get(code)
-        if produit:
-            produit.stock -= quantite
-            stock_apres = produit.stock
-        else:
-            stock_apres = 0
-
-        db.session.add(Historique(
-            cmd_id=cmd_id,
-            date=now.strftime('%Y-%m-%d'),
-            heure=now.strftime('%H:%M:%S'),
-            destination=destination,
-            code=code,
-            nom=nom,
-            quantite=quantite,
-            stock_apres=stock_apres,
-        ))
-
-    db.session.commit()
-    return jsonify({'ok': True, 'cmd_id': cmd_id})
-
-
-# ── Stock info ────────────────────────────────────────────────
-@bp.route('/stock_info')
-def stock_info():
-    produits = Produit.query.all()
-    historique = load_historique()
-
-    stock = [p.to_dict() for p in produits]
-    return jsonify({'stock': stock, 'historique': historique})
-
-
-# ── Arrivage stock ────────────────────────────────────────────
-@bp.route('/arrivage', methods=['POST'])
-def arrivage():
-    data = request.json
-    code = normalise_code(data.get('code', ''))
-    qty = int(data.get('quantite', 0))
-
-    if qty <= 0:
-        return jsonify({'ok': False, 'error': 'Quantité invalide'})
-
-    produit = Produit.query.get(code)
-    if not produit:
-        return jsonify({'ok': False, 'error': 'Produit introuvable'})
-
-    produit.stock += qty
-    db.session.commit()
-
-    return jsonify({
-        'ok': True,
-        'nouveau_stock': produit.stock,
-        'nom': produit.nom
-    })
-
-
-# ── Modifier stock manuellement ───────────────────────────────
-@bp.route('/modifier_stock', methods=['POST'])
-def modifier_stock():
-    data = request.json
-    code = normalise_code(data.get('code', ''))
-    new_stock = int(data.get('stock', 0))
-
-    produit = Produit.query.get(code)
-    if not produit:
-        return jsonify({'ok': False, 'error': 'Produit introuvable'})
-
-    produit.stock = new_stock
-    db.session.commit()
-    return jsonify({'ok': True, 'nouveau_stock': new_stock})
-
-
-# ── Scan code-barres action ───────────────────────────────────
-@bp.route('/scan_action', methods=['POST'])
-def scan_action():
-    data = request.json
-    code = data.get('code', '').strip()
-
-    if code.startswith('DEST:'):
-        dest = code.replace('DEST:', '')
-        if dest in DESTINATIONS:
-            return jsonify({'ok': True, 'action': 'set_destination', 'destination': dest})
-        return jsonify({'ok': False, 'error': 'Destination inconnue'})
-
-    if code == 'ACTION:VALIDER':
-        return jsonify({'ok': True, 'action': 'valider'})
-    if code == 'ACTION:VIDER':
-        return jsonify({'ok': True, 'action': 'vider'})
-    if code == 'ACTION:RESET_DEST':
-        return jsonify({'ok': True, 'action': 'reset_destination'})
-
-    return jsonify({'ok': True, 'action': 'produit', 'code': code})
-
-
-# ── Export PDF commande ───────────────────────────────────────
-@bp.route('/export_pdf/<cmd_id>')
-def export_pdf(cmd_id):
-    commandes = load_historique()
-    commande = next((c for c in commandes if c['id'] == cmd_id), None)
-    if not commande:
-        return "Commande introuvable", 404
-    buffer = generate_commande_pdf(commande)
-    return send_file(buffer, as_attachment=True,
-                     download_name=f"bon_{cmd_id}.pdf", mimetype='application/pdf')
-
-
-# ── Export PDF journalier ─────────────────────────────────────
-@bp.route('/export_pdf_jour/<date_str>')
-def export_pdf_jour(date_str):
-    try:
-        datetime.strptime(date_str, '%Y-%m-%d')
-    except ValueError:
-        return "Format de date invalide (YYYY-MM-DD)", 400
-
-    toutes = load_historique()
-    commandes_jour = [c for c in toutes if c['date'] == date_str]
-
-    if not commandes_jour:
-        return "Aucune commande pour cette date", 404
-
-    buffer = generate_journalier_pdf(date_str, commandes_jour)
-    return send_file(buffer, as_attachment=True,
-                     download_name=f"journalier_{date_str}.pdf", mimetype='application/pdf')
-
-
-# ══════════════════════════════════════════════════════════════
-#  COMMANDES DA
-# ══════════════════════════════════════════════════════════════
-
-def envoyer_mail_commande(commande, action="nouvelle"):
-    """Envoie le PDF de la commande DA par mail."""
-    if not MAIL_EXPEDITEUR or not MAIL_DESTINATAIRE:
-        print("⚠️ Mail non configuré, envoi ignoré")
-        return
-
-    try:
-        sujet = f"[{action.upper()}] Commande {commande['id']} — {commande['destination']}"
-        corps = f"""
-Commande : {commande['id']}
-Destination : {commande['destination']}
-Date : {commande['date']} à {commande['heure']}
-Action : {action}
-
-Produits :
-"""
-        for p in commande['produits']:
-            corps += f"  - {p['nom']} ({p['code']}) x{p['quantite']}\n"
-
-        # Générer le PDF
-        from pdf import generate_commande_da_pdf
-        buffer = generate_commande_da_pdf(commande)
-
-        # Construire le mail
-        msg = MIMEMultipart()
-        msg['From'] = MAIL_EXPEDITEUR
-        msg['To'] = MAIL_DESTINATAIRE
-        msg['Subject'] = sujet
-        msg.attach(MIMEText(corps, 'plain'))
-
-        # Attacher le PDF
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(buffer.read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition',
-                        f'attachment; filename="commande_{commande["id"]}.pdf"')
-        msg.attach(part)
-
-        # Envoi SMTP Gmail
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
-            smtp.send_message(msg)
-
-        print(f"✅ Mail envoyé pour {commande['id']}")
-
-    except Exception as e:
-        print(f"❌ Erreur mail : {e}")
 
 
 @bp.route('/commandes_da')
@@ -296,114 +145,226 @@ def commandes_da():
     )
 
 
-@bp.route('/api/catalogue')
-def api_catalogue():
-    produits = Produit.query.order_by(Produit.categorie, Produit.nom).all()
+# ══════════════════════════════════════════════════════════════
+#  SCANNER
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/scanner', methods=['POST'])
+def scanner():
+    data        = request.json
+    destination = data.get('destination')
+    code        = normalise_code(data.get('code', ''))
+
+    if not destination or destination not in DESTINATIONS:
+        return jsonify({'ok': False, 'error': 'Destination invalide'})
+
+    produit = Produit.query.get(code)
+    if not produit:
+        return jsonify({'ok': False, 'error': f'Code {code} introuvable'})
+
     return jsonify({
-        'ok': True,
-        'produits': [
-            {'code': p.code, 'nom': p.nom, 'categorie': p.categorie, 'stock': p.stock}
-            for p in produits
-        ]
+        'ok':      True,
+        'code':    code,
+        'nom':     produit.nom,
+        'stock':   produit.stock,
+        'warning': produit.stock <= 0
     })
 
 
-@bp.route('/api/commandes_da/<destination>')
-def api_commandes_da(destination):
-    rows = CommandeDA.query.filter_by(destination=destination).order_by(
-        CommandeDA.date.desc(), CommandeDA.heure.desc()
-    ).all()
+# ══════════════════════════════════════════════════════════════
+#  VALIDER COMMANDE (préparation stock)
+# ══════════════════════════════════════════════════════════════
 
-    commandes = {}
-    for r in rows:
-        if r.cmd_id not in commandes:
-            commandes[r.cmd_id] = {
-                'id': r.cmd_id,
-                'date': r.date,
-                'heure': r.heure,
-                'destination': r.destination,
-                'statut': r.statut,
-                'produits': [],
-            }
-        commandes[r.cmd_id]['produits'].append({
-            'code': r.code,
-            'nom': r.nom,
-            'quantite': r.quantite,
-        })
+@bp.route('/valider_commande', methods=['POST'])
+def valider_commande():
+    data        = request.json
+    destination = data.get('destination')
+    produits    = data.get('produits', [])
 
-    result = sorted(commandes.values(), key=lambda c: (c['date'], c['heure']), reverse=True)
-    return jsonify({'ok': True, 'commandes': result})
+    if not destination or destination not in DESTINATIONS:
+        return jsonify({'ok': False, 'error': 'Destination invalide'})
+    if not produits:
+        return jsonify({'ok': False, 'error': 'Aucun produit'})
 
-
-@bp.route('/api/commandes_da/nouvelle', methods=['POST'])
-def api_nouvelle_commande_da():
-    data = request.json
-    dest = data.get('destination')
-    produits = data.get('produits', [])
-
-    if not dest or not produits:
-        return jsonify({'ok': False, 'error': 'Données manquantes'})
-
-    cmd_id = 'CDA-' + datetime.now().strftime('%Y%m%d-%H%M%S')
-    now = datetime.now()
+    now    = datetime.now()
+    cmd_id = nouvelle_commande_id()
 
     for p in produits:
-        if p.get('quantite', 0) > 0:
-            db.session.add(CommandeDA(
-                cmd_id=cmd_id,
-                date=now.strftime('%Y-%m-%d'),
-                heure=now.strftime('%H:%M:%S'),
-                destination=dest,
-                statut='en_attente',
-                code=p['code'],
-                nom=p['nom'],
-                quantite=p['quantite'],
-            ))
+        code    = normalise_code(p.get('code', ''))
+        qte     = int(p.get('quantite', 0))
+        produit = Produit.query.get(code)
+        if not produit:
+            continue
+        produit.stock -= qte
+        stock_apres    = produit.stock
+
+        db.session.add(Historique(
+            cmd_id      = cmd_id,
+            date        = now.strftime('%Y-%m-%d'),
+            heure       = now.strftime('%H:%M:%S'),
+            destination = destination,
+            code        = code,
+            nom         = produit.nom,
+            quantite    = qte,
+            stock_apres = stock_apres,
+        ))
 
     db.session.commit()
     return jsonify({'ok': True, 'cmd_id': cmd_id})
 
 
+# ══════════════════════════════════════════════════════════════
+#  HISTORIQUE & EXPORTS PDF
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/api/historique')
+def api_historique():
+    return jsonify(load_historique())
+
+
+@bp.route('/export_pdf/<cmd_id>')
+def export_pdf(cmd_id):
+    commandes = load_historique()
+    commande  = next((c for c in commandes if c['id'] == cmd_id), None)
+    if not commande:
+        return "Commande introuvable", 404
+    buffer   = generate_commande_pdf(commande)
+    filename = f"bon_{cmd_id}.pdf"
+    return send_file(buffer, as_attachment=True,
+                     download_name=filename, mimetype='application/pdf')
+
+
+@bp.route('/export_journalier')
+def export_journalier():
+    date_str      = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    toutes        = load_historique()
+    commandes_jour = [c for c in toutes if c['date'] == date_str]
+    if not commandes_jour:
+        return "Aucune commande ce jour", 404
+    buffer   = generate_journalier_pdf(date_str, commandes_jour)
+    filename = f"journalier_{date_str}.pdf"
+    return send_file(buffer, as_attachment=True,
+                     download_name=filename, mimetype='application/pdf')
+
+
+# ══════════════════════════════════════════════════════════════
+#  COMMANDES DA — API
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/api/commandes_da')
+def api_commandes_da():
+    rows = CommandeDA.query.order_by(
+        CommandeDA.date.desc(), CommandeDA.heure.desc()
+    ).all()
+    commandes = {}
+    for r in rows:
+        if r.cmd_id not in commandes:
+            commandes[r.cmd_id] = {
+                'id':          r.cmd_id,
+                'date':        r.date,
+                'heure':       r.heure,
+                'destination': r.destination,
+                'statut':      r.statut,
+                'produits':    [],
+            }
+        commandes[r.cmd_id]['produits'].append({
+            'code':     r.code,
+            'nom':      r.nom,
+            'quantite': r.quantite,
+        })
+    return jsonify(list(commandes.values()))
+
+
+@bp.route('/api/commandes_da/nouvelle', methods=['POST'])
+def api_nouvelle_commande_da():
+    data     = request.json
+    dest     = data.get('destination')
+    produits = data.get('produits', [])
+
+    if not dest or dest not in DESTINATIONS:
+        return jsonify({'ok': False, 'error': 'Destination invalide'})
+    if not produits:
+        return jsonify({'ok': False, 'error': 'Aucun produit'})
+
+    now    = datetime.now()
+    cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
+
+    for p in produits:
+        if p.get('quantite', 0) > 0:
+            db.session.add(CommandeDA(
+                cmd_id      = cmd_id,
+                date        = now.strftime('%Y-%m-%d'),
+                heure       = now.strftime('%H:%M:%S'),
+                destination = dest,
+                statut      = 'en_attente',
+                code        = p['code'],
+                nom         = p['nom'],
+                quantite    = p['quantite'],
+            ))
+
+    db.session.commit()
+
+    # ── Envoi mail ───────────────────────────────────────────
+    commande_mail = {
+        'id':          cmd_id,
+        'date':        now.strftime('%Y-%m-%d'),
+        'heure':       now.strftime('%H:%M'),
+        'destination': dest,
+        'produits':    [p for p in produits if p.get('quantite', 0) > 0],
+    }
+    envoyer_mail_commande(commande_mail, action='nouvelle')
+
+    return jsonify({'ok': True, 'cmd_id': cmd_id})
+
+
 @bp.route('/api/commandes_da/modifier', methods=['POST'])
 def api_modifier_commande_da():
-    data = request.json
-    cmd_id = data.get('cmd_id')
+    data     = request.json
+    cmd_id   = data.get('cmd_id')
     produits = data.get('produits', [])
 
     if not cmd_id:
         return jsonify({'ok': False, 'error': 'ID commande manquant'})
 
-    # Récupérer la destination avant de supprimer
     existing = CommandeDA.query.filter_by(cmd_id=cmd_id).first()
     if not existing:
         return jsonify({'ok': False, 'error': 'Commande introuvable'})
     dest = existing.destination
 
-    # Supprimer les anciennes lignes
     CommandeDA.query.filter_by(cmd_id=cmd_id).delete()
 
-    # Réinsérer les nouvelles
     now = datetime.now()
     for p in produits:
         if p.get('quantite', 0) > 0:
             db.session.add(CommandeDA(
-                cmd_id=cmd_id,
-                date=now.strftime('%Y-%m-%d'),
-                heure=now.strftime('%H:%M:%S'),
-                destination=dest,
-                statut='en_attente',
-                code=p['code'],
-                nom=p['nom'],
-                quantite=p['quantite'],
+                cmd_id      = cmd_id,
+                date        = now.strftime('%Y-%m-%d'),
+                heure       = now.strftime('%H:%M:%S'),
+                destination = dest,
+                statut      = 'en_attente',
+                code        = p['code'],
+                nom         = p['nom'],
+                quantite    = p['quantite'],
             ))
 
     db.session.commit()
+
+    # ── Envoi mail ───────────────────────────────────────────
+    commande_mail = {
+        'id':          cmd_id,
+        'date':        now.strftime('%Y-%m-%d'),
+        'heure':       now.strftime('%H:%M'),
+        'destination': dest,
+        'produits':    [p for p in produits if p.get('quantite', 0) > 0],
+    }
+    envoyer_mail_commande(commande_mail, action='modifiée')
+
     return jsonify({'ok': True})
 
 
 @bp.route('/api/commandes_da/supprimer', methods=['POST'])
 def api_supprimer_commande_da():
-    data = request.json
+    data   = request.json
     cmd_id = data.get('cmd_id')
 
     if not cmd_id:
