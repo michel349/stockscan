@@ -3,7 +3,6 @@ import os
 # ═══ BASE DE DONNÉES ═══
 DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///stock.db')
 
-# Fix Render (postgres:// → postgresql://)
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
@@ -19,3 +18,8 @@ DEST_COLORS_HEX = {
 CODE_FIN = 'FIN'
 CODE_ANNULER = 'ANNULER'
 CODE_DEST_PREFIX = 'DEST:'
+
+# ═══ EMAIL ═══
+MAIL_EXPEDITEUR = os.environ.get('MAIL_EXPEDITEUR', '')
+MAIL_MOT_DE_PASSE = os.environ.get('MAIL_MOT_DE_PASSE', '')
+MAIL_DESTINATAIRE = os.environ.get('MAIL_DESTINATAIRE', '')
