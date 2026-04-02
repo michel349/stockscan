@@ -5,6 +5,15 @@ from config import DESTINATIONS, DEST_COLORS_HEX
 from models import db, Produit, Historique, CommandeDA
 from pdf import generate_commande_pdf, generate_journalier_pdf
 
+# Ajoute ces imports en haut
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email import encoders
+from config import DESTINATIONS, DEST_COLORS_HEX, MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE, MAIL_DESTINATAIRE
+
+
 bp = Blueprint('main', __name__)
 
 
@@ -228,6 +237,55 @@ def export_pdf_jour(date_str):
 # ══════════════════════════════════════════════════════════════
 #  COMMANDES DA
 # ══════════════════════════════════════════════════════════════
+
+def envoyer_mail_commande(commande, action="nouvelle"):
+    """Envoie le PDF de la commande DA par mail."""
+    if not MAIL_EXPEDITEUR or not MAIL_DESTINATAIRE:
+        print("⚠️ Mail non configuré, envoi ignoré")
+        return
+
+    try:
+        sujet = f"[{action.upper()}] Commande {commande['id']} — {commande['destination']}"
+        corps = f"""
+Commande : {commande['id']}
+Destination : {commande['destination']}
+Date : {commande['date']} à {commande['heure']}
+Action : {action}
+
+Produits :
+"""
+        for p in commande['produits']:
+            corps += f"  - {p['nom']} ({p['code']}) x{p['quantite']}\n"
+
+        # Générer le PDF
+        from pdf import generate_commande_da_pdf
+        buffer = generate_commande_da_pdf(commande)
+
+        # Construire le mail
+        msg = MIMEMultipart()
+        msg['From'] = MAIL_EXPEDITEUR
+        msg['To'] = MAIL_DESTINATAIRE
+        msg['Subject'] = sujet
+        msg.attach(MIMEText(corps, 'plain'))
+
+        # Attacher le PDF
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(buffer.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition',
+                        f'attachment; filename="commande_{commande["id"]}.pdf"')
+        msg.attach(part)
+
+        # Envoi SMTP Gmail
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
+            smtp.send_message(msg)
+
+        print(f"✅ Mail envoyé pour {commande['id']}")
+
+    except Exception as e:
+        print(f"❌ Erreur mail : {e}")
+
 
 @bp.route('/commandes_da')
 def commandes_da():
