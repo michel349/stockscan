@@ -1156,10 +1156,10 @@ document.getElementById('modaleArrivage').addEventListener('click', function(e) 
 //  HISTORIQUE
 // ════════════════════════════════════════════════
 function chargerHistorique() {
-    fetch('/stock_info')
+    fetch('/api/historique')
     .then(r => r.json())
     .then(data => {
-        historiqueData = data.historique;
+        historiqueData = data;  // directement la liste
         afficherHistorique(historiqueData);
     });
 }
