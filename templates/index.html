@@ -993,10 +993,10 @@ function afficherFeedback(type, message) {
 //  STOCK
 // ════════════════════════════════════════════════
 function chargerStock() {
-    fetch('/stock_info')
+    fetch('/api/stock')
     .then(r => r.json())
     .then(data => {
-        stockData = data.stock || [];
+        stockData = data;  // c'est directement une liste, pas data.stock
         afficherStock(stockData);
     });
 }
