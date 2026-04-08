@@ -5,7 +5,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
-from mail import envoyer_mail_commande
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
@@ -133,7 +132,7 @@ def index():
 
 
 @bp.route('/commandes_da')
-def commandes_da():
+def commandes_da_page():
     return render_template(
         'commandes_da.html',
         destinations=DESTINATIONS,
@@ -142,37 +141,43 @@ def commandes_da():
 
 
 # ══════════════════════════════════════════════════════════════
-#  SCANNER
+#  API STOCK / SCAN / COMMANDES CLASSIQUES
 # ══════════════════════════════════════════════════════════════
 
-@bp.route('/scanner', methods=['POST'])
-def scanner():
-    data        = request.json
-    destination = data.get('destination')
-    code        = normalise_code(data.get('code', ''))
+@bp.route('/api/stock')
+def api_stock():
+    produits = Produit.query.order_by(Produit.categorie, Produit.nom).all()
+    return jsonify([
+        {
+            'code':      p.code,
+            'nom':       p.nom,
+            'categorie': p.categorie,
+            'stock':     p.stock,
+        }
+        for p in produits
+    ])
 
-    if not destination or destination not in DESTINATIONS:
-        return jsonify({'ok': False, 'error': 'Destination invalide'})
 
-    produit = Produit.query.get(code)
+@bp.route('/api/scan', methods=['POST'])
+def api_scan():
+    data = request.json
+    code = normalise_code(data.get('code', ''))
+
+    produit = Produit.query.filter_by(code=code).first()
     if not produit:
-        return jsonify({'ok': False, 'error': f'Code {code} introuvable'})
+        return jsonify({'found': False})
 
     return jsonify({
-        'ok':      True,
-        'code':    code,
-        'nom':     produit.nom,
-        'stock':   produit.stock,
-        'warning': produit.stock <= 0
+        'found':     True,
+        'code':      produit.code,
+        'nom':       produit.nom,
+        'categorie': produit.categorie,
+        'stock':     produit.stock,
     })
 
 
-# ══════════════════════════════════════════════════════════════
-#  VALIDER COMMANDE (préparation stock)
-# ══════════════════════════════════════════════════════════════
-
-@bp.route('/valider_commande', methods=['POST'])
-def valider_commande():
+@bp.route('/api/valider', methods=['POST'])
+def api_valider():
     data        = request.json
     destination = data.get('destination')
     produits    = data.get('produits', [])
@@ -184,15 +189,21 @@ def valider_commande():
 
     now    = datetime.now()
     cmd_id = nouvelle_commande_id()
+    alertes = []
 
     for p in produits:
-        code    = normalise_code(p.get('code', ''))
-        qte     = int(p.get('quantite', 0))
-        produit = Produit.query.get(code)
+        code = normalise_code(p.get('code', ''))
+        qte  = p.get('quantite', 0)
+        if qte <= 0:
+            continue
+
+        produit = Produit.query.filter_by(code=code).first()
         if not produit:
             continue
-        produit.stock -= qte
-        stock_apres    = produit.stock
+
+        produit.stock = max(0, produit.stock - qte)
+        if produit.stock <= 0:
+            alertes.append(f"{produit.nom} ({code})")
 
         db.session.add(Historique(
             cmd_id      = cmd_id,
@@ -202,72 +213,29 @@ def valider_commande():
             code        = code,
             nom         = produit.nom,
             quantite    = qte,
-            stock_apres = stock_apres,
+            stock_apres = produit.stock,
         ))
 
     db.session.commit()
-    return jsonify({'ok': True, 'cmd_id': cmd_id})
 
+    return jsonify({
+        'ok':      True,
+        'cmd_id':  cmd_id,
+        'alertes': alertes,
+    })
 
-# ══════════════════════════════════════════════════════════════
-#  HISTORIQUE & EXPORTS PDF
-# ══════════════════════════════════════════════════════════════
 
 @bp.route('/api/historique')
 def api_historique():
     return jsonify(load_historique())
 
 
-@bp.route('/export_pdf/<cmd_id>')
-def export_pdf(cmd_id):
-    commandes = load_historique()
-    commande  = next((c for c in commandes if c['id'] == cmd_id), None)
-    if not commande:
-        return "Commande introuvable", 404
-    buffer   = generate_commande_pdf(commande)
-    filename = f"bon_{cmd_id}.pdf"
-    return send_file(buffer, as_attachment=True,
-                     download_name=filename, mimetype='application/pdf')
+@bp.route('/api/journalier')
+def api_journalier():
+    date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    rows = Historique.query.filter_by(date=date)\
+                           .order_by(Historique.heure.desc()).all()
 
-
-@bp.route('/export_journalier')
-def export_journalier():
-    date_str       = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
-    toutes         = load_historique()
-    commandes_jour = [c for c in toutes if c['date'] == date_str]
-    if not commandes_jour:
-        return "Aucune commande ce jour", 404
-    buffer   = generate_journalier_pdf(date_str, commandes_jour)
-    filename = f"journalier_{date_str}.pdf"
-    return send_file(buffer, as_attachment=True,
-                     download_name=filename, mimetype='application/pdf')
-
-
-# ══════════════════════════════════════════════════════════════
-#  STOCK INFO  ← AJOUT
-# ══════════════════════════════════════════════════════════════
-
-@bp.route('/stock_info')
-def stock_info():
-    total    = Produit.query.count()
-    ruptures = Produit.query.filter(Produit.stock <= 0).count()
-    return jsonify({
-        'ok':             True,
-        'total_produits': total,
-        'ruptures':       ruptures
-    })
-
-
-# ══════════════════════════════════════════════════════════════
-#  COMMANDES DA — API
-#  ⚠️  Routes statiques AVANT la route dynamique /<destination>
-# ══════════════════════════════════════════════════════════════
-
-@bp.route('/api/commandes_da')
-def api_commandes_da():
-    rows = CommandeDA.query.order_by(
-        CommandeDA.date.desc(), CommandeDA.heure.desc()
-    ).all()
     commandes = {}
     for r in rows:
         if r.cmd_id not in commandes:
@@ -276,16 +244,89 @@ def api_commandes_da():
                 'date':        r.date,
                 'heure':       r.heure,
                 'destination': r.destination,
-                'statut':      r.statut,
+                'produits':    [],
+                'nb_articles': 0,
+            }
+        commandes[r.cmd_id]['produits'].append({
+            'code':        r.code,
+            'nom':         r.nom,
+            'quantite':    r.quantite,
+            'stock_apres': r.stock_apres,
+        })
+        commandes[r.cmd_id]['nb_articles'] += r.quantite
+
+    return jsonify({
+        'date':      date,
+        'commandes': sorted(
+            commandes.values(),
+            key=lambda c: (c['date'], c['heure']),
+            reverse=True
+        ),
+    })
+
+
+# ══════════════════════════════════════════════════════════════
+#  PDF
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/api/pdf/commande/<cmd_id>')
+def api_pdf_commande(cmd_id):
+    rows = Historique.query.filter_by(cmd_id=cmd_id).all()
+    if not rows:
+        return 'Commande introuvable', 404
+
+    commande = {
+        'id':          cmd_id,
+        'date':        rows[0].date,
+        'heure':       rows[0].heure,
+        'destination': rows[0].destination,
+        'produits': [
+            {
+                'code':        r.code,
+                'nom':         r.nom,
+                'quantite':    r.quantite,
+                'stock_apres': r.stock_apres,
+            }
+            for r in rows
+        ],
+    }
+
+    buf = generate_commande_pdf(commande)
+    return send_file(buf, mimetype='application/pdf',
+                     download_name=f'{cmd_id}.pdf')
+
+
+@bp.route('/api/pdf/journalier')
+def api_pdf_journalier():
+    date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    rows = Historique.query.filter_by(date=date)\
+                           .order_by(Historique.destination, Historique.heure).all()
+
+    commandes = {}
+    for r in rows:
+        if r.cmd_id not in commandes:
+            commandes[r.cmd_id] = {
+                'id':          r.cmd_id,
+                'date':        r.date,
+                'heure':       r.heure,
+                'destination': r.destination,
                 'produits':    [],
             }
         commandes[r.cmd_id]['produits'].append({
-            'code':     r.code,
-            'nom':      r.nom,
-            'quantite': r.quantite,
+            'code':        r.code,
+            'nom':         r.nom,
+            'quantite':    r.quantite,
+            'stock_apres': r.stock_apres,
         })
-    return jsonify({'ok': True, 'commandes': list(commandes.values())})
 
+    buf = generate_journalier_pdf(date, list(commandes.values()))
+    return send_file(buf, mimetype='application/pdf',
+                     download_name=f'journalier_{date}.pdf')
+
+
+# ══════════════════════════════════════════════════════════════
+#  API COMMANDES DA
+# ══════════════════════════════════════════════════════════════
 
 @bp.route('/api/commandes_da/nouvelle', methods=['POST'])
 def api_nouvelle_commande_da():
@@ -333,6 +374,7 @@ def api_nouvelle_commande_da():
         traceback.print_exc()
         return jsonify({'ok': False, 'error': str(e)}), 500
 
+
 @bp.route('/api/commandes_da/modifier', methods=['POST'])
 def api_modifier_commande_da():
     data     = request.json
@@ -340,7 +382,7 @@ def api_modifier_commande_da():
     produits = data.get('produits', [])
 
     if not cmd_id:
-        return jsonify({'ok': False, 'error': 'ID commande manquant'})
+                return jsonify({'ok': False, 'error': 'ID commande manquant'})
 
     existing = CommandeDA.query.filter_by(cmd_id=cmd_id).first()
     if not existing:
@@ -393,6 +435,52 @@ def api_supprimer_commande_da():
     return jsonify({'ok': True})
 
 
+@bp.route('/api/commandes_da')
+def api_commandes_da():
+    rows = CommandeDA.query.order_by(
+        CommandeDA.date.desc(), CommandeDA.heure.desc()
+    ).all()
+    commandes = {}
+    for r in rows:
+        if r.cmd_id not in commandes:
+            commandes[r.cmd_id] = {
+                'id':          r.cmd_id,
+                'date':        r.date,
+                'heure':       r.heure,
+                'destination': r.destination,
+                'statut':      r.statut,
+                'produits':    [],
+            }
+        commandes[r.cmd_id]['produits'].append({
+            'code':     r.code,
+            'nom':      r.nom,
+            'quantite': r.quantite,
+        })
+    return jsonify({'ok': True, 'commandes': list(commandes.values())})
+
+
+@bp.route('/api/commandes_da/pdf/<cmd_id>')
+def api_pdf_commande_da(cmd_id):
+    rows = CommandeDA.query.filter_by(cmd_id=cmd_id).all()
+    if not rows:
+        return 'Commande introuvable', 404
+
+    commande = {
+        'id':          cmd_id,
+        'date':        rows[0].date,
+        'heure':       rows[0].heure,
+        'destination': rows[0].destination,
+        'produits': [
+            {'code': r.code, 'nom': r.nom, 'quantite': r.quantite}
+            for r in rows
+        ],
+    }
+
+    buf = generate_commande_da_pdf(commande)
+    return send_file(buf, mimetype='application/pdf',
+                     download_name=f'{cmd_id}.pdf')
+
+
 @bp.route('/api/catalogue')
 def api_catalogue():
     produits = Produit.query.order_by(Produit.categorie, Produit.nom).all()
@@ -403,6 +491,106 @@ def api_catalogue():
             for p in produits
         ]
     })
+
+
+@bp.route('/stock_info')
+def stock_info():
+    total    = Produit.query.count()
+    ruptures = Produit.query.filter(Produit.stock <= 0).count()
+    return jsonify({
+        'ok':             True,
+        'total_produits': total,
+        'ruptures':       ruptures
+    })
+
+
+# ══════════════════════════════════════════════════════════════
+#  ANCIENNES ROUTES (compatibilité)
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/scanner', methods=['POST'])
+def scanner():
+    data        = request.json
+    destination = data.get('destination')
+    code        = normalise_code(data.get('code', ''))
+
+    if not destination or destination not in DESTINATIONS:
+        return jsonify({'ok': False, 'error': 'Destination invalide'})
+
+    produit = Produit.query.get(code)
+    if not produit:
+        return jsonify({'ok': False, 'error': f'Code {code} introuvable'})
+
+    return jsonify({
+        'ok':      True,
+        'code':    code,
+        'nom':     produit.nom,
+        'stock':   produit.stock,
+        'warning': produit.stock <= 0
+    })
+
+
+@bp.route('/valider_commande', methods=['POST'])
+def valider_commande():
+    data        = request.json
+    destination = data.get('destination')
+    produits    = data.get('produits', [])
+
+    if not destination or destination not in DESTINATIONS:
+        return jsonify({'ok': False, 'error': 'Destination invalide'})
+    if not produits:
+        return jsonify({'ok': False, 'error': 'Aucun produit'})
+
+    now    = datetime.now()
+    cmd_id = nouvelle_commande_id()
+
+    for p in produits:
+        code    = normalise_code(p.get('code', ''))
+        qte     = int(p.get('quantite', 0))
+        produit = Produit.query.get(code)
+        if not produit:
+            continue
+        produit.stock -= qte
+        stock_apres    = produit.stock
+
+        db.session.add(Historique(
+            cmd_id      = cmd_id,
+            date        = now.strftime('%Y-%m-%d'),
+            heure       = now.strftime('%H:%M:%S'),
+            destination = destination,
+            code        = code,
+            nom         = produit.nom,
+            quantite    = qte,
+            stock_apres = stock_apres,
+        ))
+
+    db.session.commit()
+    return jsonify({'ok': True, 'cmd_id': cmd_id})
+
+
+@bp.route('/export_pdf/<cmd_id>')
+def export_pdf(cmd_id):
+    commandes = load_historique()
+    commande  = next((c for c in commandes if c['id'] == cmd_id), None)
+    if not commande:
+        return "Commande introuvable", 404
+    buffer   = generate_commande_pdf(commande)
+    filename = f"bon_{cmd_id}.pdf"
+    return send_file(buffer, as_attachment=True,
+                     download_name=filename, mimetype='application/pdf')
+
+
+@bp.route('/export_journalier')
+def export_journalier():
+    date_str       = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    toutes         = load_historique()
+    commandes_jour = [c for c in toutes if c['date'] == date_str]
+    if not commandes_jour:
+        return "Aucune commande ce jour", 404
+    buffer   = generate_journalier_pdf(date_str, commandes_jour)
+    filename = f"journalier_{date_str}.pdf"
+    return send_file(buffer, as_attachment=True,
+                     download_name=filename, mimetype='application/pdf')
 
 
 # ══════════════════════════════════════════════════════════════
@@ -432,3 +620,4 @@ def api_commandes_da_par_dest(destination):
         })
 
     return jsonify({'ok': True, 'commandes': list(commandes.values())})
+
