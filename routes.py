@@ -288,44 +288,49 @@ def api_commandes_da():
 
 @bp.route('/api/commandes_da/nouvelle', methods=['POST'])
 def api_nouvelle_commande_da():
-    data     = request.json
-    dest     = data.get('destination')
-    produits = data.get('produits', [])
+    try:
+        data     = request.json
+        dest     = data.get('destination')
+        produits = data.get('produits', [])
 
-    if not dest or dest not in DESTINATIONS:
-        return jsonify({'ok': False, 'error': 'Destination invalide'})
-    if not produits:
-        return jsonify({'ok': False, 'error': 'Aucun produit'})
+        if not dest or dest not in DESTINATIONS:
+            return jsonify({'ok': False, 'error': 'Destination invalide'})
+        if not produits:
+            return jsonify({'ok': False, 'error': 'Aucun produit'})
 
-    now    = datetime.now()
-    cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
+        now    = datetime.now()
+        cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
 
-    for p in produits:
-        if p.get('quantite', 0) > 0:
-            db.session.add(CommandeDA(
-                cmd_id      = cmd_id,
-                date        = now.strftime('%Y-%m-%d'),
-                heure       = now.strftime('%H:%M:%S'),
-                destination = dest,
-                statut      = 'en_attente',
-                code        = p['code'],
-                nom         = p['nom'],
-                quantite    = p['quantite'],
-            ))
+        for p in produits:
+            if p.get('quantite', 0) > 0:
+                db.session.add(CommandeDA(
+                    cmd_id      = cmd_id,
+                    date        = now.strftime('%Y-%m-%d'),
+                    heure       = now.strftime('%H:%M:%S'),
+                    destination = dest,
+                    statut      = 'en_attente',
+                    code        = p['code'],
+                    nom         = p['nom'],
+                    quantite    = p['quantite'],
+                ))
 
-    db.session.commit()
+        db.session.commit()
 
-    commande_mail = {
-        'id':          cmd_id,
-        'date':        now.strftime('%Y-%m-%d'),
-        'heure':       now.strftime('%H:%M'),
-        'destination': dest,
-        'produits':    [p for p in produits if p.get('quantite', 0) > 0],
-    }
-    envoyer_mail_commande(commande_mail, action='nouvelle')
+        commande_mail = {
+            'id':          cmd_id,
+            'date':        now.strftime('%Y-%m-%d'),
+            'heure':       now.strftime('%H:%M'),
+            'destination': dest,
+            'produits':    [p for p in produits if p.get('quantite', 0) > 0],
+        }
+        envoyer_mail_commande(commande_mail, action='nouvelle')
 
-    return jsonify({'ok': True, 'cmd_id': cmd_id})
+        return jsonify({'ok': True, 'cmd_id': cmd_id})
 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 @bp.route('/api/commandes_da/modifier', methods=['POST'])
 def api_modifier_commande_da():
