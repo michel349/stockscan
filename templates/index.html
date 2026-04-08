@@ -529,6 +529,8 @@
          onclick="switchTab('stock', this)">📊 Stock</div>
     <div class="tab" id="tab-btn-histo"
          onclick="switchTab('histo', this)">📋 Historique</div>
+    <div class="tab" id="tab-btn-cmdda"
+     onclick="switchTab('cmdda', this)">📋 Cmd DA</div>
 </div>
 
 <div class="content">
@@ -671,6 +673,21 @@
         </div>
     </div>
 
+    <!-- ══ COMMANDES DA ══ -->
+<div id="tab-cmdda" class="tab-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="color:#2c3e50;">📋 Commandes DA en attente</h2>
+        <button onclick="chargerCommandesDA()"
+                style="padding:8px 16px;background:#3498db;color:white;
+                       border:none;border-radius:8px;cursor:pointer;">🔄 Rafraîchir</button>
+    </div>
+
+    <div id="cmdda-list">
+        <p style="color:#7f8c8d;text-align:center;padding:40px;">Chargement…</p>
+    </div>
+</div>
+
+
 </div><!-- /content -->
 
 <!-- ── MODALE ARRIVAGE ── -->
@@ -746,6 +763,7 @@ function switchTab(name, el) {
     if (name === 'stock') chargerStock();
     if (name === 'histo') chargerHistorique();
     if (name === 'scan' && destination) focusScan();
+    if (name === 'cmdda') chargerCommandesDA();
 }
 
 // ════════════════════════════════════════════════
@@ -946,6 +964,13 @@ function validerCommande() {
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
+            if (currentCmdDA) {
+            fetch('/valider_commande_da', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cmd_id: currentCmdDA })
+            }).then(() => { currentCmdDA = null; });
+        }
             afficherFeedback('ok', `✅ Commande ${data.cmd_id} validée ! Retour…`);
             setTimeout(() => changerDest(), 2000);
         } else {
@@ -1225,6 +1250,121 @@ function shutdown() {
         fetch('/shutdown', { method: 'POST' });
     }
 }
+
+// ════════════════════════════════════════════════
+//  COMMANDES DA
+// ════════════════════════════════════════════════
+let commandesDA = [];
+
+function chargerCommandesDA() {
+    fetch('/commandes_da_liste')
+    .then(r => r.json())
+    .then(data => {
+        commandesDA = data.commandes || [];
+        afficherCommandesDA();
+    });
+}
+
+function afficherCommandesDA() {
+    const container = document.getElementById('cmdda-list');
+
+    if (commandesDA.length === 0) {
+        container.innerHTML = '<p style="color:#7f8c8d;text-align:center;padding:40px;">Aucune commande en attente</p>';
+        return;
+    }
+
+    container.innerHTML = commandesDA.map(cmd => {
+        const color = DEST_COLORS[cmd.destination] || '#2980b9';
+        const totalArt = cmd.produits.reduce((s, p) => s + p.quantite, 0);
+
+        return `
+        <div class="cmd-card">
+            <div class="cmd-card-header" onclick="toggleCmdDA('${cmd.id}')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="cmd-badge" style="background:${color};">${cmd.destination}</span>
+                    <span style="font-weight:bold;color:#2c3e50;">Commande #${cmd.id}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <span class="cmd-info">${cmd.date} ${cmd.heure} · ${totalArt} art. · ${cmd.produits.length} réf.</span>
+                    <span class="cmd-chev" id="chev-da-${cmd.id}">▶</span>
+                </div>
+            </div>
+            <div class="cmd-detail" id="detail-da-${cmd.id}">
+                <table class="stock-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Produit</th>
+                            <th style="text-align:center;">Qté demandée</th>
+                            <th style="text-align:center;">Stock actuel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${cmd.produits.map(p => {
+                            let stockClass = 'badge-ok';
+                            if (p.stock <= 0) stockClass = 'badge-empty';
+                            else if (p.stock < p.quantite) stockClass = 'badge-warn';
+                            return `
+                            <tr>
+                                <td><code>${p.code}</code></td>
+                                <td>${p.nom}</td>
+                                <td style="text-align:center;font-weight:bold;">${p.quantite}</td>
+                                <td style="text-align:center;">
+                                    <span class="badge-stock ${stockClass}">${p.stock}</span>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+                <div style="display:flex;gap:10px;margin-top:12px;">
+                    <button onclick="preparerCommandeDA(${cmd.id})"
+                            style="flex:1;padding:12px;background:#27ae60;color:white;
+                                   border:none;border-radius:8px;cursor:pointer;
+                                   font-weight:bold;font-size:1rem;">
+                        🚀 Préparer cette commande
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleCmdDA(id) {
+    document.getElementById('detail-da-' + id).classList.toggle('open');
+    document.getElementById('chev-da-' + id).classList.toggle('open');
+}
+
+function preparerCommandeDA(cmdId) {
+    const cmd = commandesDA.find(c => c.id === cmdId);
+    if (!cmd) return;
+
+    // 1) Définir la destination
+    destination = cmd.destination;
+    currentCmdDA = cmdId;
+    const hd = document.getElementById('headerDest');
+    hd.textContent = destination + ' (CMD DA)';
+    hd.style.background = DEST_COLORS[destination] || '#2980b9';
+    hd.classList.add('visible');
+
+    // 2) Pré-remplir le panier
+    panier = {};
+    cmd.produits.forEach(p => {
+        panier[p.code] = { nom: p.nom, quantite: p.quantite };
+    });
+
+    // 3) Aller à l'onglet scanner, étape 2
+    switchTab('scan', document.getElementById('tab-btn-scan'));
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    majPanier();
+    focusScan();
+
+    afficherFeedback('ok', `📋 Commande DA #${cmdId} chargée — ${cmd.produits.length} réf. Scannez ou validez.`);
+}
+
+// Variable pour tracker la commande DA en cours
+let currentCmdDA = null;
+
 </script>
 
 </body>
