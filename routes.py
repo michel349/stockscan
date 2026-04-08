@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
+from models import db, Produit, Historique, CommandeDA
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
@@ -592,6 +593,44 @@ def export_journalier():
     return send_file(buffer, as_attachment=True,
                      download_name=filename, mimetype='application/pdf')
 
+@bp.route('/commandes_da_liste')
+def commandes_da_liste():
+    lignes = CommandeDA.query.filter_by(statut='en_attente').all()
+
+    # Grouper par cmd_id
+    grouped = {}
+    for li in lignes:
+        if li.cmd_id not in grouped:
+            grouped[li.cmd_id] = {
+                'id':          li.cmd_id,
+                'destination': li.destination,
+                'date':        li.date,
+                'heure':       li.heure,
+                'produits':    []
+            }
+        p = Produit.query.get(li.code)
+        grouped[li.cmd_id]['produits'].append({
+            'code':     li.code,
+            'nom':      li.nom,
+            'quantite': li.quantite,
+            'stock':    p.stock if p else 0
+        })
+
+    result = sorted(grouped.values(), key=lambda x: x['date'] + x['heure'], reverse=True)
+    return jsonify({'commandes': result})
+
+
+@bp.route('/valider_commande_da', methods=['POST'])
+def valider_commande_da():
+    cmd_id = request.json.get('cmd_id')
+    lignes = CommandeDA.query.filter_by(cmd_id=cmd_id).all()
+    if not lignes:
+        return jsonify({'ok': False, 'error': 'Commande introuvable'})
+
+    for li in lignes:
+        li.statut = 'validee'
+    db.session.commit()
+    return jsonify({'ok': True})
 
 # ══════════════════════════════════════════════════════════════
 #  ROUTE DYNAMIQUE EN DERNIER ⚠️
