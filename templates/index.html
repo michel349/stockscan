@@ -510,6 +510,33 @@
             cursor: pointer;
         }
         .btn-cancel:hover { background: #dee2e6; }
+
+
+        /* ═══ PREPARATION DA ═══ */
+.prep-row-done {
+    background: #d5f5e3 !important;
+}
+.prep-row-partial {
+    background: #fef9e7 !important;
+}
+.prep-row-pending td {
+    color: #aab;
+}
+.prep-check {
+    font-size: 1.2rem;
+}
+.prep-badge {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+.prep-badge-done { background: #27ae60; color: white; }
+.prep-badge-partial { background: #f39c12; color: white; }
+.prep-badge-pending { background: #ecf0f1; color: #95a5a6; }
+
+        
     </style>
 </head>
 <body>
@@ -687,6 +714,64 @@
     </div>
 </div>
 
+    <!-- ══ PRÉPARATION COMMANDE DA ══ -->
+<div id="tab-prepda" class="tab-content">
+
+    <div class="scan-box" style="margin-bottom:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+                <h3 style="color:#2c3e50;margin-bottom:4px;">📋 Préparation commande</h3>
+                <span id="prepInfo" style="font-size:0.85rem;color:#7f8c8d;"></span>
+            </div>
+            <button onclick="annulerPreparation()" style="background:#e74c3c;color:white;border:none;
+                padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:bold;">✕ Annuler</button>
+        </div>
+
+        <!-- Barre progression -->
+        <div style="background:#ecf0f1;border-radius:10px;height:28px;margin-bottom:16px;overflow:hidden;position:relative;">
+            <div id="prepProgressBar" style="height:100%;background:#27ae60;border-radius:10px;
+                transition:width 0.3s;width:0%;"></div>
+            <span id="prepProgressText" style="position:absolute;top:50%;left:50%;
+                transform:translate(-50%,-50%);font-weight:bold;font-size:0.85rem;color:#2c3e50;">
+                0 / 0
+            </span>
+        </div>
+
+        <!-- Input scan -->
+        <div class="scan-input-row">
+            <input id="prepScanInput" type="text"
+                   placeholder="Scanner le produit…"
+                   onkeydown="if(event.key==='Enter') scannerPrep()">
+            <button onclick="scannerPrep()"
+                    style="padding:10px 20px;background:#3498db;color:white;
+                    border:none;border-radius:8px;cursor:pointer;font-size:1rem;">↵</button>
+        </div>
+        <div id="prepFeedback" class="feedback" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- Liste produits -->
+    <div style="margin-top:16px;">
+        <table class="stock-table">
+            <thead>
+                <tr>
+                    <th style="width:30px;">✓</th>
+                    <th>Code</th>
+                    <th>Produit</th>
+                    <th style="text-align:center;">Scanné</th>
+                    <th style="text-align:center;">Demandé</th>
+                </tr>
+            </thead>
+            <tbody id="prepTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Bouton valider -->
+    <button id="prepBtnValider" class="btn-valider" onclick="validerPreparation()"
+            disabled style="margin-top:16px;opacity:0.5;">
+        ✅ Valider la préparation
+    </button>
+</div>
+
 
 </div><!-- /content -->
 
@@ -755,15 +840,20 @@ document.addEventListener('DOMContentLoaded', () => {
 // ════════════════════════════════════════════════
 //  TABS
 // ════════════════════════════════════════════════
-function switchTab(name, el) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+function switchTab(name, btn) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    const tab = document.getElementById('tab-' + name);
+    if (tab) tab.classList.add('active');
+    if (btn) btn.classList.add('active');
+
     if (name === 'stock') chargerStock();
     if (name === 'histo') chargerHistorique();
-    if (name === 'scan' && destination) focusScan();
     if (name === 'cmdda') chargerCommandesDA();
+    if (name === 'prepda') {
+        document.getElementById('prepScanInput')?.focus();
+    }
 }
 
 // ════════════════════════════════════════════════
@@ -1332,36 +1422,226 @@ function toggleCmdDA(id) {
     document.getElementById('chev-da-' + id).classList.toggle('open');
 }
 
+// ════════════════════════════════════════════════
+//  PRÉPARATION COMMANDE DA
+// ════════════════════════════════════════════════
+let prepDA = null;
+// Structure: { cmd_id, destination, produits: [{code, nom, demande, scanne}] }
+
 function preparerCommandeDA(cmdId) {
     const cmd = commandesDA.find(c => c.id === cmdId);
     if (!cmd) return;
 
-    // 1) Définir la destination
-    destination = cmd.destination;
-    currentCmdDA = cmdId;
+    prepDA = {
+        cmd_id: cmdId,
+        destination: cmd.destination,
+        produits: cmd.produits.map(p => ({
+            code: p.code,
+            nom: p.nom,
+            demande: p.quantite,
+            scanne: 0
+        }))
+    };
+
+    // Afficher l'onglet
+    document.getElementById('tab-prepda').style.display = 'block';
+    switchTab('prepda', null);
+
+    // Header info
+    const color = DEST_COLORS[cmd.destination] || '#2980b9';
+    document.getElementById('prepInfo').innerHTML =
+        `<span style="background:${color};color:white;padding:3px 12px;border-radius:12px;font-weight:bold;">
+            ${cmd.destination}
+        </span> — Commande #${cmdId} — ${cmd.produits.length} réf.`;
+
     const hd = document.getElementById('headerDest');
-    hd.textContent = destination + ' (CMD DA)';
-    hd.style.background = DEST_COLORS[destination] || '#2980b9';
+    hd.textContent = cmd.destination + ' (Prépa)';
+    hd.style.background = color;
     hd.classList.add('visible');
 
-    // 2) Pré-remplir le panier
-    panier = {};
-    cmd.produits.forEach(p => {
-        panier[p.code] = { nom: p.nom, quantite: p.quantite };
-    });
-
-    // 3) Aller à l'onglet scanner, étape 2
-    switchTab('scan', document.getElementById('tab-btn-scan'));
-    document.getElementById('step1').style.display = 'none';
-    document.getElementById('step2').style.display = 'block';
-    majPanier();
-    focusScan();
-
-    afficherFeedback('ok', `📋 Commande DA #${cmdId} chargée — ${cmd.produits.length} réf. Scannez ou validez.`);
+    majPrepAffichage();
+    setTimeout(() => {
+        document.getElementById('prepScanInput').focus();
+    }, 100);
 }
 
-// Variable pour tracker la commande DA en cours
-let currentCmdDA = null;
+function majPrepAffichage() {
+    if (!prepDA) return;
+
+    const tbody = document.getElementById('prepTableBody');
+    let totalDemande = 0, totalScanne = 0;
+
+    tbody.innerHTML = prepDA.produits.map(p => {
+        totalDemande += p.demande;
+        totalScanne += p.scanne;
+
+        let rowClass = 'prep-row-pending';
+        let check = '⬜';
+        let badgeClass = 'prep-badge-pending';
+
+        if (p.scanne >= p.demande) {
+            rowClass = 'prep-row-done';
+            check = '✅';
+            badgeClass = 'prep-badge-done';
+        } else if (p.scanne > 0) {
+            rowClass = 'prep-row-partial';
+            check = '🔶';
+            badgeClass = 'prep-badge-partial';
+        }
+
+        return `
+        <tr class="${rowClass}">
+            <td class="prep-check">${check}</td>
+            <td><code>${p.code}</code></td>
+            <td>${p.nom}</td>
+            <td style="text-align:center;">
+                <span class="prep-badge ${badgeClass}">${p.scanne}</span>
+            </td>
+            <td style="text-align:center;font-weight:bold;">${p.demande}</td>
+        </tr>`;
+    }).join('');
+
+    // Progression
+    const pct = totalDemande > 0 ? Math.round((totalScanne / totalDemande) * 100) : 0;
+    document.getElementById('prepProgressBar').style.width = pct + '%';
+    document.getElementById('prepProgressBar').style.background =
+        pct >= 100 ? '#27ae60' : pct > 50 ? '#f39c12' : '#e74c3c';
+    document.getElementById('prepProgressText').textContent =
+        `${totalScanne} / ${totalDemande} (${pct}%)`;
+
+    // Bouton valider
+    const btn = document.getElementById('prepBtnValider');
+    const complet = prepDA.produits.every(p => p.scanne >= p.demande);
+    btn.disabled = !complet;
+    btn.style.opacity = complet ? '1' : '0.5';
+}
+
+function scannerPrep() {
+    const input = document.getElementById('prepScanInput');
+    const code = input.value.trim().toUpperCase();
+    input.value = '';
+    if (!code || !prepDA) return;
+
+    const fb = document.getElementById('prepFeedback');
+
+    // Actions spéciales
+    if (code === 'ACTION:VALIDER' || code === 'FIN') {
+        const complet = prepDA.produits.every(p => p.scanne >= p.demande);
+        if (complet) {
+            validerPreparation();
+        } else {
+            fb.className = 'feedback error';
+            fb.textContent = '❌ Préparation incomplète — continuez à scanner';
+        }
+        input.focus();
+        return;
+    }
+
+    if (code === 'ACTION:VIDER' || code === 'ANNULER') {
+        annulerPreparation();
+        return;
+    }
+
+    // Chercher le produit dans la liste
+    const produit = prepDA.produits.find(p => p.code === code);
+
+    if (!produit) {
+        fb.className = 'feedback error';
+        fb.textContent = `❌ ${code} ne fait pas partie de cette commande`;
+        input.focus();
+        return;
+    }
+
+    if (produit.scanne >= produit.demande) {
+        fb.className = 'feedback warn';
+        fb.textContent = `⚠️ ${produit.nom} — déjà complet (${produit.scanne}/${produit.demande})`;
+        input.focus();
+        return;
+    }
+
+    // Incrémenter
+    produit.scanne += 1;
+
+    if (produit.scanne >= produit.demande) {
+        fb.className = 'feedback ok';
+        fb.textContent = `✅ ${produit.nom} — COMPLET ✓ (${produit.scanne}/${produit.demande})`;
+    } else {
+        fb.className = 'feedback ok';
+        fb.textContent = `📦 ${produit.nom} — ${produit.scanne}/${produit.demande}`;
+    }
+
+    majPrepAffichage();
+
+    // Auto-focus
+    input.focus();
+
+    // Si tout complet → feedback spécial
+    const toutComplet = prepDA.produits.every(p => p.scanne >= p.demande);
+    if (toutComplet) {
+        setTimeout(() => {
+            fb.className = 'feedback ok';
+            fb.textContent = '🎉 Tout est scanné ! Vous pouvez valider.';
+        }, 800);
+    }
+}
+
+function validerPreparation() {
+    if (!prepDA) return;
+
+    const fb = document.getElementById('prepFeedback');
+    fb.className = 'feedback ok';
+    fb.textContent = '⏳ Validation en cours…';
+
+    // Construire le panier pour /valider_commande
+    const panierPrep = {};
+    prepDA.produits.forEach(p => {
+        panierPrep[p.code] = { nom: p.nom, quantite: p.scanne };
+    });
+
+    fetch('/valider_commande', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            destination: prepDA.destination,
+            panier: panierPrep
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.ok) {
+            fb.className = 'feedback error';
+            fb.textContent = '❌ Erreur : ' + data.error;
+            return;
+        }
+
+        // Marquer la commande DA comme validée
+        fetch('/valider_commande_da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cmd_id: prepDA.cmd_id })
+        }).then(() => {
+            fb.className = 'feedback ok';
+            fb.textContent = `✅ Commande ${data.cmd_id} validée ! Préparation terminée.`;
+
+            setTimeout(() => {
+                prepDA = null;
+                document.getElementById('tab-prepda').style.display = 'none';
+                document.getElementById('headerDest').classList.remove('visible');
+                switchTab('cmdda', document.getElementById('tab-btn-cmdda'));
+                chargerCommandesDA();
+            }, 2000);
+        });
+    });
+}
+
+function annulerPreparation() {
+    if (!confirm('Annuler cette préparation ?')) return;
+    prepDA = null;
+    document.getElementById('tab-prepda').style.display = 'none';
+    document.getElementById('headerDest').classList.remove('visible');
+    switchTab('cmdda', document.getElementById('tab-btn-cmdda'));
+}
+
 
 </script>
 
