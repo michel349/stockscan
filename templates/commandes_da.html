@@ -402,41 +402,51 @@
     }
 
     // ═══ ENVOYER COMMANDE ═══
-    async function envoyerCommande() {
-        const codes = Object.keys(quantites);
-        if (codes.length === 0) return;
+    @bp.route('/api/commandes_da/nouvelle', methods=['POST'])
+def api_nouvelle_commande_da():
+    try:
+        data     = request.json
+        dest     = data.get('destination')
+        produits = data.get('produits', [])
 
-        const produits = codes.map(code => {
-            const p = catalogue.find(x => x.code === code);
-            return { code, nom: p ? p.nom : code, quantite: quantites[code] };
-        });
+        if not dest or dest not in DESTINATIONS:
+            return jsonify({'ok': False, 'error': 'Destination invalide'})
+        if not produits:
+            return jsonify({'ok': False, 'error': 'Aucun produit'})
 
-        let url, body;
+        now    = datetime.now()
+        cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
 
-        if (editingCmdId) {
-            url = '/api/commandes_da/modifier';
-            body = { cmd_id: editingCmdId, produits };
-        } else {
-            url = '/api/commandes_da/nouvelle';
-            body = { destination: currentDA, produits };
+        for p in produits:
+            if p.get('quantite', 0) > 0:
+                db.session.add(CommandeDA(
+                    cmd_id      = cmd_id,
+                    date        = now.strftime('%Y-%m-%d'),
+                    heure       = now.strftime('%H:%M:%S'),
+                    destination = dest,
+                    statut      = 'en_attente',
+                    code        = p['code'],
+                    nom         = p['nom'],
+                    quantite    = p['quantite'],
+                ))
+
+        db.session.commit()
+
+        commande_mail = {
+            'id':          cmd_id,
+            'date':        now.strftime('%Y-%m-%d'),
+            'heure':       now.strftime('%H:%M'),
+            'destination': dest,
+            'produits':    [p for p in produits if p.get('quantite', 0) > 0],
         }
+        envoyer_mail_commande(commande_mail, action='nouvelle')
 
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        const data = await res.json();
+        return jsonify({'ok': True, 'cmd_id': cmd_id})
 
-        if (data.ok) {
-            toast(editingCmdId ? 'Commande modifiée ✓' : 'Commande envoyée ✓', 'success');
-            editingCmdId = null;
-            quantites = {};
-            showEcran('ecran-menu');
-        } else {
-            toast(data.error || 'Erreur', 'error');
-        }
-    }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
     // ═══ MES COMMANDES ═══
     async function ouvrirMesCommandes() {
