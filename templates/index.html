@@ -1518,9 +1518,21 @@ function majPrepAffichage() {
 
     // Bouton valider
     const btn = document.getElementById('prepBtnValider');
+    const toutScanne = totalScanne > 0;
     const complet = prepDA.produits.every(p => p.scanne >= p.demande);
-    btn.disabled = !complet;
-    btn.style.opacity = complet ? '1' : '0.5';
+    
+    // Toujours actif si au moins 1 produit scanné
+    btn.disabled = !toutScanne;
+    btn.style.opacity = toutScanne ? '1' : '0.5';
+    
+    // Changement couleur si incomplet
+    if (complet) {
+        btn.style.background = '#27ae60';
+        btn.textContent = '✅ Valider la préparation';
+    } else {
+        btn.style.background = '#f39c12';
+        btn.textContent = '⚠️ Valider quand même (incomplet)';
+    }
 }
 
 function scannerPrep() {
@@ -1533,13 +1545,7 @@ function scannerPrep() {
 
     // Actions spéciales
     if (code === 'ACTION:VALIDER' || code === 'FIN') {
-        const complet = prepDA.produits.every(p => p.scanne >= p.demande);
-        if (complet) {
-            validerPreparation();
-        } else {
-            fb.className = 'feedback error';
-            fb.textContent = '❌ Préparation incomplète — continuez à scanner';
-        }
+        validerPreparation();
         input.focus();
         return;
     }
@@ -1605,12 +1611,19 @@ function validerPreparation() {
         panierPrep[p.code] = { nom: p.nom, quantite: p.scanne };
     });
 
+    // Transformer en format attendu par l'API
+    const produits = Object.keys(panierPrep).map(code => ({
+        code: code,
+        nom: panierPrep[code].nom,
+        quantite: panierPrep[code].quantite
+    }));
+
     fetch('/valider_commande', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             destination: prepDA.destination,
-            panier: panierPrep
+            produits: produits
         })
     })
     .then(r => r.json())
