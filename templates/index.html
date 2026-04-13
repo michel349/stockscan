@@ -36,16 +36,6 @@
         }
         .header-dest.visible { display: block; }
 
-        .btn-shutdown {
-            background: #c0392b;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .btn-shutdown:hover { background: #e74c3c; }
 
         /* ── TABS ── */
         .tabs {
@@ -545,7 +535,6 @@
 <header>
     <h1>📦 Stock Scan</h1>
     <span class="header-dest" id="headerDest"></span>
-    <button class="btn-shutdown" onclick="shutdown()">⏹ Arrêter</button>
 </header>
 
 <!-- ── TABS ── -->
@@ -1342,11 +1331,6 @@ function exportPDFJour() {
     window.open('/export_pdf_jour/' + date, '_blank');
 }
 
-function shutdown() {
-    if (confirm('Arrêter le serveur ?')) {
-        fetch('/shutdown', { method: 'POST' });
-    }
-}
 
 // ════════════════════════════════════════════════
 //  COMMANDES DA
