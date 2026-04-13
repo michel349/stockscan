@@ -109,9 +109,12 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         )
         msg.attach(part)
 
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
-            smtp.send_message(msg)
+        try:
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as smtp:
+                smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
+                smtp.send_message(msg)
+        except Exception as mail_err:
+            print(f"⚠️ Echec envoi mail (continué normalement): {mail_err}")
 
         print(f"✅ Mail envoyé pour {commande['id']} ({action})")
 
