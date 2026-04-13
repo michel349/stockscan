@@ -1046,10 +1046,17 @@ function validerCommande() {
 
     afficherFeedback('ok', '⏳ Validation en cours…');
 
+    // Transformer le panier en liste de produits attendue par l'API
+    const produits = Object.keys(panier).map(code => ({
+        code: code,
+        nom: panier[code].nom,
+        quantite: panier[code].quantite
+    }));
+
     fetch('/valider_commande', {
         method:  'POST',
         headers: {'Content-Type': 'application/json'},
-        body:    JSON.stringify({ destination, panier })
+        body:    JSON.stringify({ destination, produits })
     })
     .then(r => r.json())
     .then(data => {
