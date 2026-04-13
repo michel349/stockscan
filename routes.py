@@ -369,9 +369,19 @@ def api_nouvelle_commande_da():
             'destination': dest,
             'produits':    [p for p in produits if p.get('quantite', 0) > 0],
         }
-        envoyer_mail_commande(commande_mail, action='nouvelle')
 
-        return jsonify({'ok': True, 'cmd_id': cmd_id})
+        # ✅ On répond d'abord IMMEDIATEMENT à l'utilisateur
+        response = jsonify({'ok': True, 'cmd_id': cmd_id})
+
+        # ✅ Puis on envoie le mail EN ARRIERE PLAN sans attendre
+        import threading
+        threading.Thread(
+            target=envoyer_mail_commande,
+            args=(commande_mail, 'nouvelle'),
+            daemon=True
+        ).start()
+
+        return response
 
     except Exception as e:
         import traceback
