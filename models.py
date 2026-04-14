@@ -50,3 +50,6 @@ class CommandeDA(db.Model):
     code = db.Column(db.String(50), nullable=False)
     nom = db.Column(db.String(200), default='')
     quantite = db.Column(db.Integer, default=0)
+    date_retrait = db.Column(db.String(10), nullable=True)
+
+

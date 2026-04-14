@@ -351,6 +351,8 @@ def api_nouvelle_commande_da():
         now    = datetime.now()
         cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
 
+        date_retrait = data.get('date_retrait') or None
+
         for p in produits:
             if p.get('quantite', 0) > 0:
                 db.session.add(CommandeDA(
@@ -362,6 +364,7 @@ def api_nouvelle_commande_da():
                     code        = p['code'],
                     nom         = p['nom'],
                     quantite    = p['quantite'],
+                    date_retrait = date_retrait
                 ))
 
         db.session.commit()
@@ -633,6 +636,7 @@ def commandes_da_liste():
                 'destination': li.destination,
                 'date':        li.date,
                 'heure':       li.heure,
+                'date_retrait': li.date_retrait,
                 'produits':    []
             }
         p = Produit.query.get(li.code)
