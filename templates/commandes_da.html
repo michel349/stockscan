@@ -433,7 +433,7 @@
 
         let url, body;
 
-        const date_retrait = document.getElementById('date-retrait').value || null;
+        const date_retrait = document.getElementById('date-retrait').value ? document.getElementById('date-retrait').value.substring(0,10) : null;
 
         if (editingCmdId) {
             url = '/api/commandes_da/modifier';
