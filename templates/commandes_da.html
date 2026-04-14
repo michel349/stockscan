@@ -222,6 +222,14 @@
         <button onclick="retourMenu()">← Menu</button>
     </div>
 
+    <div style="padding:0 12px 0 12px;">
+        <div style="background:white;border-radius:12px;padding:18px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+            <h4 style="margin-bottom:12px;color:#2c3e50;font-size:1.1em;">📅 Jour de passage pour récupérer la commande:</h4>
+            <input type="date" id="date-retrait" style="width:100%;padding:14px 16px;border:2px solid #ddd;border-radius:10px;font-size:1.15em;">
+            <p style="margin-top:10px;color:#7f8c8d;font-size:0.85em;">💡 La date est optionnelle, tu peux ne pas remplir</p>
+        </div>
+    </div>
+
     <div class="search-zone">
         <input type="text" id="search-input" placeholder="🔍 Rechercher un produit..." oninput="filtrerProduits()">
         <select id="filtre-cat" onchange="filtrerProduits()">
@@ -258,6 +266,13 @@
     let catalogue = [];
     let quantites = {};  // { code: qty }
     let editingCmdId = null;
+
+    // ✅ Formatter date ISO YYYY-MM-DD → jj/mm/aaaa
+    function formatDateFr(dateStr) {
+        if (!dateStr) return '';
+        const [y, m, d] = dateStr.split('-');
+        return `${d}/${m}/${y}`;
+    }
 
     // ═══ NAVIGATION ═══
     function showEcran(id) {
@@ -418,12 +433,14 @@
 
         let url, body;
 
+        const date_retrait = document.getElementById('date-retrait').value || null;
+
         if (editingCmdId) {
             url = '/api/commandes_da/modifier';
-            body = { cmd_id: editingCmdId, produits };
+            body = { cmd_id: editingCmdId, produits, date_retrait };
         } else {
             url = '/api/commandes_da/nouvelle';
-            body = { destination: currentDA, produits };
+            body = { destination: currentDA, produits, date_retrait };
         }
 
         const res = await fetch(url, {
@@ -476,7 +493,7 @@
             card.innerHTML = `
                 <div class="header" onclick="this.nextElementSibling.classList.toggle('ouvert')">
                     <div>
-                        <div class="date">${cmd.date} — ${cmd.heure}</div>
+                        <div class="date">${formatDateFr(cmd.date)} — ${cmd.heure}</div>
                         <div style="font-size:0.85em;color:#7f8c8d;">${cmd.produits.length} produit(s), ${totalQty} article(s)</div>
                     </div>
                     <span class="${badgeClass}">${badgeText}</span>

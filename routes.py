@@ -110,7 +110,11 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         msg.attach(part)
 
         try:
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as smtp:
+            # ✅ Version qui marche sur Railway avec STARTTLS
+            with smtplib.SMTP('smtp.gmail.com', 587, timeout=10) as smtp:
+                smtp.ehlo()
+                smtp.starttls()
+                smtp.ehlo()
                 smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
                 smtp.send_message(msg)
         except Exception as mail_err:
@@ -428,9 +432,19 @@ def api_modifier_commande_da():
         'destination': dest,
         'produits':    [p for p in produits if p.get('quantite', 0) > 0],
     }
-    envoyer_mail_commande(commande_mail, action='modifiée')
 
-    return jsonify({'ok': True})
+    # ✅ On répond d'abord IMMEDIATEMENT à l'utilisateur
+    response = jsonify({'ok': True})
+
+    # ✅ Puis on envoie le mail EN ARRIERE PLAN sans attendre
+    import threading
+    threading.Thread(
+        target=envoyer_mail_commande,
+        args=(commande_mail, 'modifiée'),
+        daemon=True
+    ).start()
+
+    return response
 
 
 @bp.route('/api/commandes_da/supprimer', methods=['POST'])
