@@ -351,26 +351,27 @@ def api_nouvelle_commande_da():
         now    = datetime.now()
         cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
 
-date_retrait = data.get('date_retrait')
-if date_retrait:
-    try:
-        date_retrait = datetime.strptime(date_retrait, '%Y-%m-%d').date()
-    except:
-        date_retrait = None
-else:
-    date_retrait = None
+        # ✅ Ces lignes doivent être indentées DANS le try (8 espaces)
+        date_retrait = data.get('date_retrait')
+        if date_retrait:
+            try:
+                date_retrait = datetime.strptime(date_retrait, '%Y-%m-%d').date()
+            except:
+                date_retrait = None
+        else:
+            date_retrait = None
 
         for p in produits:
             if p.get('quantite', 0) > 0:
                 db.session.add(CommandeDA(
-                    cmd_id      = cmd_id,
-                    date        = now.strftime('%Y-%m-%d'),
-                    heure       = now.strftime('%H:%M:%S'),
-                    destination = dest,
-                    statut      = 'en_attente',
-                    code        = p['code'],
-                    nom         = p['nom'],
-                    quantite    = p['quantite'],
+                    cmd_id       = cmd_id,
+                    date         = now.strftime('%Y-%m-%d'),
+                    heure        = now.strftime('%H:%M:%S'),
+                    destination  = dest,
+                    statut       = 'en_attente',
+                    code         = p['code'],
+                    nom          = p['nom'],
+                    quantite     = p['quantite'],
                     date_retrait = date_retrait
                 ))
 
@@ -384,10 +385,8 @@ else:
             'produits':    [p for p in produits if p.get('quantite', 0) > 0],
         }
 
-        # ✅ On répond d'abord IMMEDIATEMENT à l'utilisateur
         response = jsonify({'ok': True, 'cmd_id': cmd_id})
 
-        # ✅ Puis on envoie le mail EN ARRIERE PLAN sans attendre
         import threading
         threading.Thread(
             target=envoyer_mail_commande,
@@ -401,6 +400,70 @@ else:
         import traceback
         traceback.print_exc()
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+    try:
+        data     = request.json
+        dest     = data.get('destination')
+        produits = data.get('produits', [])
+
+        if not dest or dest not in DESTINATIONS:
+            return jsonify({'ok': False, 'error': 'Destination invalide'})
+        if not produits:
+            return jsonify({'ok': False, 'error': 'Aucun produit'})
+
+        now    = datetime.now()
+        cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
+
+        date_retrait = data.get('date_retrait')
+        if date_retrait:
+            try:
+                date
+            else:
+                date_retrait = None
+        except:
+            date_retrait = None
+
+                for p in produits:
+                    if p.get('quantite', 0) > 0:
+                        db.session.add(CommandeDA(
+                            cmd_id      = cmd_id,
+                            date        = now.strftime('%Y-%m-%d'),
+                            heure       = now.strftime('%H:%M:%S'),
+                            destination = dest,
+                            statut      = 'en_attente',
+                            code        = p['code'],
+                            nom         = p['nom'],
+                            quantite    = p['quantite'],
+                            date_retrait = date_retrait
+                        ))
+
+                db.session.commit()
+
+                commande_mail = {
+                    'id':          cmd_id,
+                    'date':        now.strftime('%Y-%m-%d'),
+                    'heure':       now.strftime('%H:%M'),
+                    'destination': dest,
+                    'produits':    [p for p in produits if p.get('quantite', 0) > 0],
+                }
+
+                # ✅ On répond d'abord IMMEDIATEMENT à l'utilisateur
+                response = jsonify({'ok': True, 'cmd_id': cmd_id})
+
+                # ✅ Puis on envoie le mail EN ARRIERE PLAN sans attendre
+                import threading
+                threading.Thread(
+                    target=envoyer_mail_commande,
+                    args=(commande_mail, 'nouvelle'),
+                    daemon=True
+                ).start()
+
+                return response
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @bp.route('/api/commandes_da/modifier', methods=['POST'])
