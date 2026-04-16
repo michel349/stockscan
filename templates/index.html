@@ -1375,8 +1375,11 @@ function afficherCommandesDA() {
                 <div style="display:flex;align-items:center;gap:16px;">
                     <span class="cmd-info">${formatDateFr(cmd.date)} ${cmd.heure} · ${totalArt} art.</span>
 ${ cmd.date_retrait ? `
-                        <span style="background:#27ae60;color:white;padding:4px 12px;border-radius:12px;font-weight:bold;font-size:0.9rem;">
-                            📅 ${cmd.date_retrait.split('-').reverse().join('/')}
+                        <span style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:8px;font-weight:500;font-size:0.8rem;">
+                            📅 ${(() => {
+                                const d = new Date(cmd.date_retrait);
+                                return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
+                            })()}
                         </span>
                     ` : '' }
                     <span class="cmd-chev" id="chev-da-${cmd.id}">▶</span>
