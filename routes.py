@@ -351,13 +351,13 @@ def api_nouvelle_commande_da():
         now    = datetime.now()
         cmd_id = 'DA-' + now.strftime('%Y%m%d-%H%M%S')
 
-try:
-    date_retrait = data.get('date_retrait')
-    if date_retrait:
+date_retrait = data.get('date_retrait')
+if date_retrait:
+    try:
         date_retrait = datetime.strptime(date_retrait, '%Y-%m-%d').date()
-    else:
+    except:
         date_retrait = None
-except:
+else:
     date_retrait = None
 
         for p in produits:
