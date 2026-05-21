@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Commandes DA</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -30,6 +30,7 @@
             background: #2c3e50; color: white;
             padding: 12px 16px; display: flex;
             justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
         }
         .top-bar h2 { font-size: 1.1em; }
         .top-bar button {
@@ -43,6 +44,7 @@
             position: sticky; top: 52px; z-index: 99;
             background: #f0f2f5; padding: 10px 12px;
             display: flex; gap: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         }
         .search-zone input {
             flex: 1; padding: 10px 14px; border: 2px solid #ddd;
@@ -64,6 +66,7 @@
             font-size: 0.95em; margin-top: 10px;
             border-radius: 8px 8px 0 0;
             position: sticky; top: 104px; z-index: 50;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
         }
         .ligne-produit {
             display: flex; align-items: center;
@@ -174,6 +177,117 @@
         .toast-success { background: #27ae60; }
         .toast-error { background: #e74c3c; }
         @keyframes toastIn { from { opacity: 0; top: 0; } to { opacity: 1; top: 20px; } }
+
+        /* ═══════════════════════════════════════════ */
+        /*  MEDIA QUERIES – TRÈS PETITS ÉCRANS        */
+        /* ═══════════════════════════════════════════ */
+
+        /* ≈ 360-399px (5.45" et très petits téléphones) */
+        @media (max-width: 399px) {
+            html { font-size: 14px; } /* Réduit légèrement la base pour tout le texte */
+
+            /* ── CHOIX DA ── */
+            #ecran-choix h1 { font-size: 1.4em; }
+            #ecran-choix.actif { gap: 14px; padding: 10px; }
+            .btn-da {
+                width: 100%; max-width: 280px;
+                padding: 20px 14px; font-size: 1.2em;
+                border-radius: 14px;
+            }
+
+            /* ── TOP BAR ── */
+            .top-bar { padding: 6px 8px; }
+            .top-bar h2 { font-size: 0.85em; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .top-bar button { padding: 6px 10px; font-size: 0.8em; }
+
+            /* ── MENU ── */
+            .menu-btns { padding: 12px 8px; gap: 8px; }
+            .menu-btn { min-width: 100px; padding: 14px 8px; font-size: 0.95em; }
+
+            /* ── DATE RETRAIT ── */
+            #ecran-nouvelle > div:first-of-type > div { padding: 10px !important; margin: 6px 0 !important; }
+            #ecran-nouvelle > div:first-of-type h4 { font-size: 0.85em !important; }
+            #date-retrait { padding: 8px 10px !important; font-size: 0.9em !important; }
+
+            /* ── RECHERCHE ── */
+            .search-zone { padding: 5px 6px; gap: 4px; top: 42px; }
+            .search-zone input { padding: 6px 8px; font-size: 0.8em; }
+            .search-zone select { padding: 6px 4px; font-size: 0.75em; max-width: 70px; }
+
+            /* ── TABLEAU PRODUITS ── */
+            .tableau-produits { padding: 0 3px 90px 3px; }
+            .cat-titre { padding: 5px 8px; font-size: 0.78em; top: 87px; border-radius: 6px 6px 0 0; }
+            .ligne-produit {
+                padding: 6px 6px;
+                gap: 4px;
+                display: grid;
+                grid-template-columns: 1fr 30px;
+                grid-template-rows: auto auto;
+                grid-template-areas:
+                    "info qty"
+                    "stock qty";
+            }
+            .ligne-produit .info { grid-area: info; }
+            .ligne-produit .nom {
+                font-size: 0.82em;
+                white-space: normal;        /* ← le nom peut passer à la ligne */
+                overflow: visible;
+                text-overflow: clip;
+                line-height: 1.3;
+            }
+            .ligne-produit .code { font-size: 0.6em; }
+
+            /* Stock info : pastille toute petite juste sous le nom */
+            .ligne-produit .stock-info {
+                grid-area: stock;
+                display: inline-block;
+                min-width: auto; font-size: 0.55em;
+                padding: 1px 6px; border-radius: 3px;
+                max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                background: #e8e8e8; margin-top: 1px;
+            }
+            .ligne-produit .stock-info.rupture { background: #ffe0e0; }
+
+            /* ── QUANTITÉ ── */
+            .qty-zone { grid-area: qty; display: flex; flex-direction: column; gap: 3px; }
+            .qty-btn { width: 28px; height: 26px; font-size: 1em; border-radius: 5px; }
+            .qty-input { width: 28px; height: 26px; font-size: 0.85em; padding: 0; }
+
+            /* ── BOTTOM BAR ── */
+            .bottom-bar { padding: 6px 8px; }
+            .bottom-bar .resume { font-size: 0.78em; }
+            .btn-envoyer { padding: 8px 14px; font-size: 0.85em; border-radius: 8px; }
+
+            /* ── MES COMMANDES ── */
+            .commande-card { margin: 5px 6px; border-radius: 8px; }
+            .commande-card .header { padding: 8px 10px; }
+            .commande-card .header .date { font-size: 0.8em; }
+            .commande-card .header .badge { font-size: 0.65em; padding: 2px 6px; }
+            .commande-card .body { padding: 0 10px 8px; }
+            .commande-card .body table { font-size: 0.75em; }
+            .cmd-actions { gap: 4px; }
+            .cmd-actions button { padding: 6px; font-size: 0.78em; }
+
+            /* ── TOAST ── */
+            .toast { padding: 8px 14px; font-size: 0.8em; top: 8px; }
+        }
+
+        /* ≈ 400-479px – petits téléphones un peu plus larges */
+        @media (min-width: 400px) and (max-width: 479px) {
+            html { font-size: 15px; }
+            .btn-da { width: 240px; padding: 28px 16px; font-size: 1.5em; }
+            .top-bar { padding: 10px 12px; }
+            .top-bar h2 { font-size: 0.95em; }
+            .search-zone { padding: 8px 10px; }
+            .search-zone input { padding: 8px 12px; font-size: 0.9em; }
+            .ligne-produit { padding: 8px 10px; gap: 8px; }
+            .ligne-produit .nom { font-size: 0.88em; }
+            .qty-btn { width: 32px; height: 32px; font-size: 1.2em; }
+            .qty-input { width: 42px; height: 32px; }
+            .btn-envoyer { padding: 12px 24px; font-size: 1em; }
+            .bottom-bar .resume { font-size: 0.88em; }
+            .commande-card { margin: 6px 10px; }
+        }
     </style>
 </head>
 <body>
