@@ -468,8 +468,9 @@
                 div.className = 'ligne-produit';
                 div.id = 'ligne-' + p.code;
 
-                const stockClass = p.stock <= 0 ? 'stock-info rupture' : 'stock-info';
-                const stockText = p.stock <= 0 ? 'RUPTURE' : 'Stock: ' + p.stock;
+                const provisoire = p.stock_provisoire !== undefined ? p.stock_provisoire : p.stock;
+                const stockClass = provisoire <= 0 ? 'stock-info rupture' : 'stock-info';
+                const stockText = provisoire <= 0 ? 'RUPTURE' : 'Stock prov.: ' + provisoire;
 
                 div.innerHTML = `
                     <div class="info">

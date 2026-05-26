@@ -9,7 +9,8 @@ from models import db, Produit, Historique, CommandeDA
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
-    MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE, MAIL_DESTINATAIRE
+    MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE, MAIL_DESTINATAIRE,
+    MAIL_SERVEUR, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL
 )
 from models import db, Produit, Historique, CommandeDA
 from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf
@@ -20,6 +21,17 @@ bp = Blueprint('main', __name__)
 # ══════════════════════════════════════════════════════════════
 #  HELPERS
 # ══════════════════════════════════════════════════════════════
+
+def calculer_stock_provisoire(code_produit):
+    """Retourne le stock réel - les quantités réservées par les DA en attente."""
+    from sqlalchemy import func
+    total_da = db.session.query(func.coalesce(func.sum(CommandeDA.quantite), 0))\
+        .filter(CommandeDA.code == code_produit, CommandeDA.statut == 'en_attente').scalar()
+    produit = Produit.query.get(code_produit)
+    if not produit:
+        return 0
+    return max(0, produit.stock - total_da)
+
 
 def normalise_code(code):
     c = str(code).strip()
@@ -110,13 +122,20 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         msg.attach(part)
 
         try:
-            # ✅ Version qui marche sur Railway avec STARTTLS
-            with smtplib.SMTP('smtp.gmail.com', 587, timeout=10) as smtp:
-                smtp.ehlo()
-                smtp.starttls()
-                smtp.ehlo()
-                smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
-                smtp.send_message(msg)
+            if MAIL_USE_SSL:
+                # Connexion SSL (port 465 typiquement)
+                with smtplib.SMTP_SSL(MAIL_SERVEUR, MAIL_PORT, timeout=10) as smtp:
+                    smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
+                    smtp.send_message(msg)
+            else:
+                # Connexion STARTTLS (port 587 typiquement)
+                with smtplib.SMTP(MAIL_SERVEUR, MAIL_PORT, timeout=10) as smtp:
+                    smtp.ehlo()
+                    if MAIL_USE_TLS:
+                        smtp.starttls()
+                        smtp.ehlo()
+                    smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
+                    smtp.send_message(msg)
         except Exception as mail_err:
             print(f"⚠️ Echec envoi mail (continué normalement): {mail_err}")
 
@@ -161,6 +180,7 @@ def api_stock():
             'nom':       p.nom,
             'categorie': p.categorie,
             'stock':     p.stock,
+            'stock_provisoire': calculer_stock_provisoire(p.code),
         }
         for p in produits
     ])
@@ -523,7 +543,13 @@ def api_catalogue():
     return jsonify({
         'ok': True,
         'produits': [
-            {'code': p.code, 'nom': p.nom, 'categorie': p.categorie, 'stock': p.stock}
+            {
+                'code': p.code,
+                'nom': p.nom,
+                'categorie': p.categorie,
+                'stock': p.stock,
+                'stock_provisoire': calculer_stock_provisoire(p.code),
+            }
             for p in produits
         ]
     })

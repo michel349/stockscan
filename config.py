@@ -20,6 +20,12 @@ CODE_ANNULER      = 'ANNULER'
 CODE_DEST_PREFIX  = 'DEST:'
 
 # ═══ EMAIL ═══
-MAIL_EXPEDITEUR    = os.environ.get('MAIL_EXPEDITEUR', '')
-MAIL_MOT_DE_PASSE  = os.environ.get('MAIL_MOT_DE_PASSE', '')
-MAIL_DESTINATAIRE  = os.environ.get('MAIL_DESTINATAIRE', '')
+MAIL_EXPEDITEUR     = os.environ.get('MAIL_EXPEDITEUR', '')
+MAIL_MOT_DE_PASSE   = os.environ.get('MAIL_MOT_DE_PASSE', '')
+MAIL_DESTINATAIRE   = os.environ.get('MAIL_DESTINATAIRE', '')
+
+# Serveur SMTP (par défaut Gmail, mais modifiable pour SendGrid, Mailjet, etc.)
+MAIL_SERVEUR        = os.environ.get('MAIL_SERVEUR', 'smtp.gmail.com')
+MAIL_PORT           = int(os.environ.get('MAIL_PORT', '587'))
+MAIL_USE_TLS        = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+MAIL_USE_SSL        = os.environ.get('MAIL_USE_SSL', 'false').lower() == 'true'

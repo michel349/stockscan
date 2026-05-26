@@ -384,6 +384,24 @@
         .prod-qty span.warn  { background: #fff3cd; color: #856404; }
         .prod-qty span.empty { background: #f8d7da; color: #721c24; }
 
+        /* Stock provisoire badge */
+        .prod-provisoire {
+            width: 40px;
+            flex-shrink: 0;
+            text-align: center;
+        }
+        .prod-provisoire span {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.82rem;
+        }
+        .prod-provisoire span.prov-ok    { background: #d4edda; color: #155724; }
+        .prod-provisoire span.prov-warn  { background: #fff3cd; color: #856404; }
+        .prod-provisoire span.prov-empty { background: #f8d7da; color: #721c24; }
+        .prod-provisoire span.prov-none  { background: #f0f2f5; color: #95a5a6; }
+
         .prod-action {
             width: 90px;
             flex-shrink: 0;
@@ -1167,6 +1185,13 @@ function afficherStock(stock) {
             if (p.stock <= 0)      etat = 'empty';
             else if (p.stock <= 5) etat = 'warn';
             const pct = Math.min(100, Math.round((p.stock / maxStock) * 100));
+
+            const prov = p.stock_provisoire !== undefined ? p.stock_provisoire : p.stock;
+            let provEtat = 'prov-ok';
+            if (prov <= 0)      provEtat = 'prov-empty';
+            else if (prov <= 5) provEtat = 'prov-warn';
+            if (prov === p.stock) provEtat += ' prov-none';
+
             return `
             <div class="prod-row">
                 <span class="prod-code">${p.code}</span>
@@ -1177,6 +1202,9 @@ function afficherStock(stock) {
                     </div>
                 </div>
                 <div class="prod-qty"><span class="${etat}">${p.stock}</span></div>
+                <div class="prod-provisoire">
+                    <span class="${provEtat}" title="Stock après déduction des DA en attente">${prov}</span>
+                </div>
                 <div class="prod-action">
                     <button class="btn-arrivage"
                             onclick="ouvrirArrivage('${p.code}','${p.nom}')">
