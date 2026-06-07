@@ -5,15 +5,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
-from models import db, Produit, Historique, CommandeDA
+from models import db, Produit, Historique, CommandeDA, CommandeFournisseur
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
     MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE, MAIL_DESTINATAIRE,
     MAIL_SERVEUR, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL
 )
-from models import db, Produit, Historique, CommandeDA
-from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf
+from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf, generate_commande_fournisseur_pdf
 
 bp = Blueprint('main', __name__)
 
@@ -693,6 +692,168 @@ def valider_commande_da():
         li.statut = 'validee'
     db.session.commit()
     return jsonify({'ok': True})
+
+# ══════════════════════════════════════════════════════════════
+#  API COMMANDES FOURNISSEUR
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/commande_fournisseur')
+def commande_fournisseur_page():
+    return render_template('commande_fournisseur.html')
+
+
+@bp.route('/api/suggestions_reappro')
+def api_suggestions_reappro():
+    """Retourne les produits dont le stock est inférieur au stock minimum."""
+    produits = Produit.query.filter(
+        Produit.stock_mini > 0,
+        Produit.stock < Produit.stock_mini
+    ).order_by(Produit.categorie, Produit.nom).all()
+    return jsonify({
+        'ok': True,
+        'suggestions': [
+            {
+                'code': p.code,
+                'nom': p.nom,
+                'categorie': p.categorie,
+                'stock': p.stock,
+                'stock_mini': p.stock_mini,
+                'stock_maxi': p.stock_maxi,
+            }
+            for p in produits
+        ]
+    })
+
+
+@bp.route('/api/commande_fournisseur/nouvelle', methods=['POST'])
+def api_nouvelle_commande_fournisseur():
+    try:
+        data     = request.json
+        produits = data.get('produits', [])
+
+        if not produits:
+            return jsonify({'ok': False, 'error': 'Aucun produit'})
+
+        now    = datetime.now()
+        cmd_id = 'FOUR-' + now.strftime('%Y%m%d-%H%M%S')
+
+        for p in produits:
+            qte = p.get('quantite', 0)
+            if qte > 0:
+                db.session.add(CommandeFournisseur(
+                    cmd_id   = cmd_id,
+                    date     = now.strftime('%Y-%m-%d'),
+                    heure    = now.strftime('%H:%M:%S'),
+                    code     = p['code'],
+                    nom      = p['nom'],
+                    quantite = qte,
+                ))
+
+                # Mettre à jour le stock (on augmente le stock)
+                produit = Produit.query.get(p['code'])
+                if produit:
+                    produit.stock += qte
+
+        db.session.commit()
+
+        return jsonify({'ok': True, 'cmd_id': cmd_id})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/commandes_fournisseur')
+def api_commandes_fournisseur():
+    rows = CommandeFournisseur.query.order_by(
+        CommandeFournisseur.date.desc(),
+        CommandeFournisseur.heure.desc()
+    ).all()
+
+    commandes = {}
+    for r in rows:
+        if r.cmd_id not in commandes:
+            commandes[r.cmd_id] = {
+                'id':       r.cmd_id,
+                'date':     r.date,
+                'heure':    r.heure,
+                'produits': [],
+            }
+        commandes[r.cmd_id]['produits'].append({
+            'code':     r.code,
+            'nom':      r.nom,
+            'quantite': r.quantite,
+        })
+
+    return jsonify({'ok': True, 'commandes': list(commandes.values())})
+
+
+@bp.route('/api/commande_fournisseur/pdf/<cmd_id>')
+def api_pdf_commande_fournisseur(cmd_id):
+    rows = CommandeFournisseur.query.filter_by(cmd_id=cmd_id).all()
+    if not rows:
+        return 'Commande introuvable', 404
+
+    commande = {
+        'id':       cmd_id,
+        'date':     rows[0].date,
+        'heure':    rows[0].heure,
+        'produits': [
+            {'code': r.code, 'nom': r.nom, 'quantite': r.quantite}
+            for r in rows
+        ],
+    }
+
+    buf = generate_commande_fournisseur_pdf(commande)
+    return send_file(buf, mimetype='application/pdf',
+                     download_name=f'{cmd_id}.pdf')
+
+
+@bp.route('/api/commande_fournisseur/csv/<cmd_id>')
+def api_csv_commande_fournisseur(cmd_id):
+    import csv, io
+    rows = CommandeFournisseur.query.filter_by(cmd_id=cmd_id).all()
+    if not rows:
+        return 'Commande introuvable', 404
+
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow(['Code', 'Produit', 'Quantite'])
+    for r in rows:
+        writer.writerow([r.code, r.nom, r.quantite])
+
+    output.seek(0)
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        mimetype='text/csv',
+        download_name=f'{cmd_id}.csv',
+        as_attachment=True
+    )
+
+
+@bp.route('/api/commandes_fournisseur/csv')
+def api_csv_commandes_fournisseur():
+    import csv, io
+    rows = CommandeFournisseur.query.order_by(
+        CommandeFournisseur.date.desc(),
+        CommandeFournisseur.heure.desc()
+    ).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow(['Commande', 'Date', 'Heure', 'Code', 'Produit', 'Quantite'])
+    for r in rows:
+        writer.writerow([r.cmd_id, r.date, r.heure, r.code, r.nom, r.quantite])
+
+    output.seek(0)
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        mimetype='text/csv',
+        download_name='commandes_fournisseur.csv',
+        as_attachment=True
+    )
+
 
 # ══════════════════════════════════════════════════════════════
 #  ROUTE DYNAMIQUE EN DERNIER ⚠️

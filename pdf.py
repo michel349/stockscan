@@ -96,6 +96,98 @@ def generate_commande_pdf(commande):
 
 
 # ════════════════════════════════════════════════
+#  PDF COMMANDE FOURNISSEUR
+# ════════════════════════════════════════════════
+def generate_commande_fournisseur_pdf(commande):
+    """
+    commande = {
+        'id':          'FOUR-20250115-143200',
+        'date':        '2025-01-15',
+        'heure':       '14:32',
+        'produits':    [{'code', 'nom', 'quantite'}, ...]
+    }
+    """
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=2*cm,  bottomMargin=2*cm
+    )
+
+    ORANGE      = colors.HexColor('#e67e22')
+    GRIS        = colors.HexColor('#f8f9fa')
+    GRIS2       = colors.HexColor('#dee2e6')
+    story       = []
+
+    # ── En-tête ──────────────────────────────────────────────
+    style_titre = ParagraphStyle(
+        'titre', fontSize=18, alignment=TA_CENTER,
+        backColor=ORANGE, textColor=colors.white,
+        spaceAfter=4, spaceBefore=4,
+        borderPadding=(10, 10, 10, 10)
+    )
+    story.append(Paragraph(
+        "<font color='white'><b>COMMANDE FOURNISSEUR</b></font>",
+        style_titre
+    ))
+    story.append(Spacer(1, 0.4*cm))
+
+    produits    = commande.get('produits', [])
+    nb_articles = sum(p.get('quantite', 0) for p in produits)
+
+    info_data = [
+        ['Commande :',    commande.get('id', '')],
+        ['Date :',        commande.get('date', '')],
+        ['Heure :',       commande.get('heure', '')],
+        ['Nb produits :', str(len(produits))],
+        ['Nb articles :', str(nb_articles)],
+    ]
+    info_table = Table(info_data, colWidths=[4*cm, 10*cm])
+    info_table.setStyle(TableStyle([
+        ('FONTNAME',      (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTNAME',      (0, 0), (0,  -1), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR',     (0, 0), (0,  -1), ORANGE),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.5*cm))
+    story.append(HRFlowable(width="100%", thickness=1, color=ORANGE))
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── Tableau produits ──────────────────────────────────────
+    rows = [['Code', 'Produit', 'Quantité']]
+    for p in produits:
+        rows.append([
+            p.get('code', ''),
+            p.get('nom', ''),
+            str(p.get('quantite', 0))
+        ])
+
+    prod_table = Table(rows, colWidths=[3.5*cm, 11*cm, 2.5*cm], repeatRows=1)
+    prod_table.setStyle(TableStyle([
+        ('BACKGROUND',     (0, 0), (-1,  0), ORANGE),
+        ('TEXTCOLOR',      (0, 0), (-1,  0), colors.white),
+        ('FONTNAME',       (0, 0), (-1,  0), 'Helvetica-Bold'),
+        ('FONTSIZE',       (0, 0), (-1,  0), 10),
+        ('ALIGN',          (0, 0), (-1,  0), 'CENTER'),
+        ('FONTNAME',       (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE',       (0, 1), (-1, -1), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, GRIS]),
+        ('ALIGN',          (2, 1), (2,  -1), 'CENTER'),
+        ('GRID',           (0, 0), (-1, -1), 0.5, GRIS2),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 7),
+        ('TOPPADDING',     (0, 0), (-1, -1), 7),
+    ]))
+    story.append(prod_table)
+    story.append(Spacer(1, 1*cm))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+# ════════════════════════════════════════════════
 #  PDF COMMANDE DA
 # ════════════════════════════════════════════════
 def generate_commande_da_pdf(commande):

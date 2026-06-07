@@ -53,3 +53,24 @@ class CommandeDA(db.Model):
     date_retrait = db.Column(db.Date, nullable=True)
 
 
+class CommandeFournisseur(db.Model):
+    __tablename__ = 'commandes_fournisseur'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    cmd_id = db.Column(db.String(50), nullable=False)
+    date = db.Column(db.String(10), nullable=False)
+    heure = db.Column(db.String(8), nullable=False)
+    code = db.Column(db.String(50), nullable=False)
+    nom = db.Column(db.String(200), default='')
+    quantite = db.Column(db.Integer, default=0)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'cmd_id': self.cmd_id,
+            'date': self.date,
+            'heure': self.heure,
+            'code': self.code,
+            'nom': self.nom,
+            'quantite': self.quantite,
+        }

@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Commande Fournisseur - ScanDAv1</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        header h1 { font-size: 1.3rem; }
+        header a {
+            color: #bdc3c7;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        header a:hover { color: white; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ═══ SUGGESTIONS ═══ */
+        .suggestions-box {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .suggestions-header {
+            padding: 14px 18px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #ecf0f1;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .suggestions-header .badge {
+            background: #e74c3c;
+            color: white;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+
+        .suggestion-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 18px;
+            border-bottom: 1px solid #f0f2f5;
+            gap: 12px;
+            transition: background 0.1s;
+        }
+        .suggestion-row:hover { background: #f8f9fa; }
+        .suggestion-row:last-child { border-bottom: none; }
+
+        .suggestion-row .code {
+            width: 100px;
+            flex-shrink: 0;
+            font-family: monospace;
+            font-size: 0.82rem;
+            color: #7f8c8d;
+            background: #f0f2f5;
+            padding: 2px 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .suggestion-row .nom {
+            flex: 1;
+            font-size: 0.92rem;
+            color: #2c3e50;
+        }
+        .suggestion-row .stock-info {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .suggestion-row .stock-info span {
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .suggestion-row .stock-info .label {
+            color: #95a5a6;
+            font-size: 0.7rem;
+            display: block;
+        }
+        .suggestion-row .stock-info .val {
+            font-weight: bold;
+            display: block;
+        }
+        .suggestion-row .stock-info .val.rupture { color: #e74c3c; }
+        .suggestion-row .stock-info .val.bas { color: #f39c12; }
+        .suggestion-row .stock-info .val.ok { color: #27ae60; }
+
+        .suggestion-row .qte-input {
+            width: 70px;
+            padding: 6px 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: bold;
+        }
+        .suggestion-row .qte-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        /* ═══ PANIER FOURNISSEUR ═══ */
+        .panier-box {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .panier-header {
+            padding: 14px 18px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panier-header h3 {
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panier-header .count {
+            background: #3498db;
+            color: white;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+        .panier-header .btn-vider {
+            padding: 6px 14px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .panier-header .btn-vider:hover { background: #c0392b; }
+
+        .panier-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .panier-table th {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            color: #2c3e50;
+            font-size: 0.85rem;
+        }
+        .panier-table td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+        }
+        .panier-table .qte-edit {
+            width: 60px;
+            padding: 4px 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .panier-table .qte-edit:focus { outline: none; border-color: #3498db; }
+        .panier-table .btn-suppr {
+            padding: 4px 10px;
+            background: #f8d7da;
+            color: #721c24;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .panier-table .btn-suppr:hover { background: #f5c6cb; }
+
+        .panier-footer {
+            padding: 14px 18px;
+            border-top: 1px solid #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panier-footer .total {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .btn-valider {
+            padding: 10px 28px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-valider:hover { background: #219a52; }
+        .btn-valider:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .panier-empty {
+            padding: 30px;
+            text-align: center;
+            color: #95a5a6;
+        }
+
+        /* ═══ FEEDBACK ═══ */
+        .feedback {
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .feedback.show { display: block; }
+        .feedback.ok    { background: #d4edda; color: #155724; }
+        .feedback.error { background: #f8d7da; color: #721c24; }
+        .feedback.warn  { background: #fff3cd; color: #856404; }
+
+        /* ═══ ZONE RECHERCHE ═══ */
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .search-bar input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 0.95rem;
+        }
+        .search-bar input:focus { outline: none; border-color: #3498db; }
+
+        .search-bar select {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* ═══ ONGLETS HISTORIQUE ═══ */
+        .histo-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 16px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .histo-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: #7f8c8d;
+            background: white;
+            border: none;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .histo-tab:hover { color: #2c3e50; background: #f8f9fa; }
+        .histo-tab.active { color: #2980b9; border-bottom-color: #2980b9; }
+
+        /* ═══ HISTORIQUE CMD ═══ */
+        .cmd-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .cmd-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        .cmd-card-header:hover { background: #ecf0f1; }
+        .cmd-badge {
+            padding: 3px 12px;
+            border-radius: 20px;
+            background: #27ae60;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .cmd-info { color: #7f8c8d; font-size: 0.9rem; }
+        .cmd-chev { font-size: 1.1rem; transition: transform 0.2s; color: #7f8c8d; }
+        .cmd-chev.open { transform: rotate(90deg); }
+        .cmd-detail { display: none; padding: 14px 16px; }
+        .cmd-detail.open { display: block; }
+
+        .cmd-detail table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .cmd-detail table th {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            background: #f8f9fa;
+            font-size: 0.85rem;
+            color: #2c3e50;
+        }
+        .cmd-detail table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .btn-download {
+            margin-top: 10px;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-right: 6px;
+        }
+        .btn-pdf {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-pdf:hover { background: #c0392b; }
+        .btn-csv {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-csv:hover { background: #219a52; }
+
+        .empty-msg {
+            text-align: center;
+            padding: 40px;
+            color: #95a5a6;
+        }
+
+        /* ═══ BOUTONS EXPORT HISTORIQUE ═══ */
+        .export-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .suggestion-row { flex-wrap: wrap; }
+            .suggestion-row .stock-info { width: 100%; justify-content: space-around; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>📦 Commande Fournisseur</h1>
+    <a href="/">← Retour au scan</a>
+</header>
+
+<div class="container">
+
+    <div id="feedbackGlobal" class="feedback"></div>
+
+    <!-- ═══ ONGLETS ═══ -->
+    <div class="histo-tabs">
+        <button class="histo-tab active" onclick="switchFournTab('nouvelle', this)">➕ Nouvelle commande</button>
+        <button class="histo-tab" onclick="switchFournTab('historique', this)">📋 Historique</button>
+    </div>
+
+    <!-- ══ NOUVELLE COMMANDE ══ -->
+    <div id="fourn-tab-nouvelle" class="fourn-tab-content" style="display:block;">
+
+        <!-- Suggestions de réapprovisionnement -->
+        <div class="suggestions-box">
+            <div class="suggestions-header">
+                <span>💡 Suggestions de réapprovisionnement (stock < stock mini)</span>
+                <span class="badge" id="suggCount">0</span>
+            </div>
+            <div id="suggestionsList">
+                <p class="empty-msg">Chargement…</p>
+            </div>
+        </div>
+
+        <!-- Recherche catalogue -->
+        <div class="search-bar">
+            <input type="text" id="catalogSearch"
+                   placeholder="🔍 Rechercher un produit dans le catalogue…"
+                   oninput="filtrerCatalogue()">
+        </div>
+
+        <!-- Résultats catalogue -->
+        <div class="suggestions-box" style="margin-bottom:20px;">
+            <div class="suggestions-header">
+                <span>📦 Catalogue produits</span>
+                <span class="badge" style="background:#3498db;" id="catalogCount">0</span>
+            </div>
+            <div id="catalogList">
+                <p class="empty-msg">Chargement…</p>
+            </div>
+        </div>
+
+        <!-- Panier fournisseur -->
+        <div class="panier-box">
+            <div class="panier-header">
+                <h3>🛒 Panier fournisseur <span class="count" id="panierCount">0 réf.</span></h3>
+                <button class="btn-vider" onclick="viderPanierFournisseur()">🗑️ Vider</button>
+            </div>
+            <div id="panierContent">
+                <div class="panier-empty">Ajoutez des produits depuis les suggestions ou le catalogue.</div>
+            </div>
+            <div class="panier-footer">
+                <span class="total" id="panierTotal">Total : 0 articles</span>
+                <button class="btn-valider" id="btnValiderFour" onclick="validerCommandeFournisseur()" disabled>
+                    ✅ Valider la commande fournisseur
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ HISTORIQUE ══ -->
+    <div id="fourn-tab-historique" class="fourn-tab-content" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="color:#2c3e50;">📋 Historique des commandes fournisseur</h2>
+            <div class="export-buttons">
+                <button onclick="exportCSVGlobal()"
+                        style="padding:8px 16px;background:#27ae60;color:white;border:none;border-radius:8px;cursor:pointer;">
+                    📥 CSV Global
+                </button>
+                <button onclick="chargerHistoFournisseur()"
+                        style="padding:8px 16px;background:#3498db;color:white;border:none;border-radius:8px;cursor:pointer;">
+                    🔄 Rafraîchir
+                </button>
+            </div>
+        </div>
+        <div id="histoFournisseurList">
+            <p class="empty-msg">Chargement…</p>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  ÉTAT
+// ════════════════════════════════════════════════
+let panierFournisseur = {};  // { code: { nom, quantite, categorie } }
+let catalogueData = [];
+let histoFournisseurData = [];
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    chargerCatalogue();
+    chargerSuggestions();
+});
+
+// ════════════════════════════════════════════════
+//  ONGLETS
+// ════════════════════════════════════════════════
+function switchFournTab(name, btn) {
+    document.querySelectorAll('.fourn-tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.histo-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('fourn-tab-' + name).style.display = 'block';
+    if (btn) btn.classList.add('active');
+    if (name === 'historique') chargerHistoFournisseur();
+}
+
+// ════════════════════════════════════════════════
+//  CATALOGUE
+// ════════════════════════════════════════════════
+function chargerCatalogue() {
+    fetch('/api/catalogue')
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            catalogueData = data.produits;
+            afficherCatalogue(catalogueData);
+        }
+    });
+}
+
+function filtrerCatalogue() {
+    const q = document.getElementById('catalogSearch').value.toLowerCase().trim();
+    if (!q) { afficherCatalogue(catalogueData); return; }
+    const filtered = catalogueData.filter(p =>
+        p.nom.toLowerCase().includes(q) ||
+        p.code.toLowerCase().includes(q) ||
+        (p.categorie || '').toLowerCase().includes(q)
+    );
+    afficherCatalogue(filtered);
+}
+
+function afficherCatalogue(produits) {
+    const container = document.getElementById('catalogList');
+    document.getElementById('catalogCount').textContent = produits.length;
+    if (produits.length === 0) {
+        container.innerHTML = '<p class="empty-msg">Aucun produit trouvé</p>';
+        return;
+    }
+    container.innerHTML = produits.map(p => {
+        const inPanier = panierFournisseur[p.code];
+        const qte = inPanier ? inPanier.quantite : '';
+        return `
+        <div class="suggestion-row">
+            <span class="code">${p.code}</span>
+            <span class="nom">${p.nom}</span>
+            <div class="stock-info">
+                <span>
+                    <span class="label">Stock</span>
+                    <span class="val ${p.stock <= 0 ? 'rupture' : p.stock <= 5 ? 'bas' : 'ok'}">${p.stock}</span>
+                </span>
+            </div>
+            <input type="number" class="qte-input" min="0" value="${qte}"
+                   placeholder="Qté" id="cat-qte-${p.code}"
+                   onchange="ajouterDepuisCatalogue('${p.code}', this.value)"
+                   onfocus="this.select()">
+        </div>`;
+    }).join('');
+}
+
+function ajouterDepuisCatalogue(code, qteStr) {
+    const qte = parseInt(qteStr);
+    if (!qte || qte <= 0) {
+        delete panierFournisseur[code];
+        majPanierFournisseur();
+        chargerCatalogue();
+        return;
+    }
+    const produit = catalogueData.find(p => p.code === code);
+    if (!produit) return;
+    panierFournisseur[code] = { nom: produit.nom, quantite: qte, categorie: produit.categorie || '' };
+    majPanierFournisseur();
+    chargerCatalogue();
+}
+
+// ════════════════════════════════════════════════
+//  SUGGESTIONS
+// ════════════════════════════════════════════════
+function chargerSuggestions() {
+    fetch('/api/suggestions_reappro')
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            afficherSuggestions(data.suggestions);
+        }
+    });
+}
+
+function afficherSuggestions(suggestions) {
+    const container = document.getElementById('suggestionsList');
+    document.getElementById('suggCount').textContent = suggestions.length;
+    if (suggestions.length === 0) {
+        container.innerHTML = '<p class="empty-msg">✅ Tous les produits ont un stock suffisant.</p>';
+        return;
+    }
+    container.innerHTML = suggestions.map(s => {
+        const qteSugg = Math.max(s.stock_maxi - s.stock, 1);
+        const inPanier = panierFournisseur[s.code];
+        const qte = inPanier ? inPanier.quantite : qteSugg;
+        return `
+        <div class="suggestion-row">
+            <span class="code">${s.code}</span>
+            <span class="nom">${s.nom}</span>
+            <div class="stock-info">
+                <span>
+                    <span class="label">Stock</span>
+                    <span class="val ${s.stock <= 0 ? 'rupture' : 'bas'}">${s.stock}</span>
+                </span>
+                <span>
+                    <span class="label">Mini</span>
+                    <span class="val ok">${s.stock_mini}</span>
+                </span>
+                <span>
+                    <span class="label">Maxi</span>
+                    <span class="val ok">${s.stock_maxi}</span>
+                </span>
+            </div>
+            <input type="number" class="qte-input" min="0" value="${qte}"
+                   id="sugg-qte-${s.code}"
+                   onchange="ajouterDepuisSuggestion('${s.code}', this.value)"
+                   onfocus="this.select()">
+        </div>`;
+    }).join('');
+}
+
+function ajouterDepuisSuggestion(code, qteStr) {
+    const qte = parseInt(qteStr);
+    if (!qte || qte <= 0) {
+        delete panierFournisseur[code];
+        majPanierFournisseur();
+        chargerSuggestions();
+        return;
+    }
+    const produit = catalogueData.find(p => p.code === code);
+    if (!produit) return;
+    panierFournisseur[code] = { nom: produit.nom, quantite: qte, categorie: produit.categorie || '' };
+    majPanierFournisseur();
+    chargerSuggestions();
+}
+
+// ════════════════════════════════════════════════
+//  PANIER FOURNISSEUR
+// ════════════════════════════════════════════════
+function majPanierFournisseur() {
+    const container = document.getElementById('panierContent');
+    const countSpan = document.getElementById('panierCount');
+    const totalSpan = document.getElementById('panierTotal');
+    const btnValider = document.getElementById('btnValiderFour');
+    const keys = Object.keys(panierFournisseur);
+
+    const total = keys.reduce((s, k) => s + panierFournisseur[k].quantite, 0);
+    countSpan.textContent = keys.length + ' réf.';
+    totalSpan.textContent = 'Total : ' + total + ' article(s)';
+    btnValider.disabled = keys.length === 0;
+
+    if (keys.length === 0) {
+        container.innerHTML = '<div class="panier-empty">Ajoutez des produits depuis les suggestions ou le catalogue.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table class="panier-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Produit</th>
+                    <th style="text-align:center;width:100px;">Quantité</th>
+                    <th style="width:60px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                ${keys.map(code => {
+                    const p = panierFournisseur[code];
+                    return `
+                    <tr>
+                        <td><code>${code}</code></td>
+                        <td>${p.nom}</td>
+                        <td style="text-align:center;">
+                            <input type="number" class="qte-edit" value="${p.quantite}" min="1"
+                                   onchange="modifierQtePanier('${code}', this.value)">
+                        </td>
+                        <td>
+                            <button class="btn-suppr" onclick="supprimerDuPanier('${code}')">✕</button>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>`;
+}
+
+function modifierQtePanier(code, qteStr) {
+    const qte = parseInt(qteStr);
+    if (!qte || qte <= 0) {
+        supprimerDuPanier(code);
+        return;
+    }
+    if (panierFournisseur[code]) {
+        panierFournisseur[code].quantite = qte;
+        majPanierFournisseur();
+    }
+}
+
+function supprimerDuPanier(code) {
+    delete panierFournisseur[code];
+    majPanierFournisseur();
+    chargerSuggestions();
+    chargerCatalogue();
+}
+
+function viderPanierFournisseur() {
+    if (Object.keys(panierFournisseur).length === 0) return;
+    if (!confirm('Vider le panier ?')) return;
+    panierFournisseur = {};
+    majPanierFournisseur();
+    chargerSuggestions();
+    chargerCatalogue();
+    afficherFeedback('ok', '🗑️ Panier vidé');
+}
+
+// ════════════════════════════════════════════════
+//  VALIDER COMMANDE FOURNISSEUR
+// ════════════════════════════════════════════════
+function validerCommandeFournisseur() {
+    const keys = Object.keys(panierFournisseur);
+    if (keys.length === 0) return;
+
+    if (!confirm('Confirmer la validation de cette commande fournisseur ?')) return;
+
+    const produits = keys.map(code => ({
+        code: code,
+        nom: panierFournisseur[code].nom,
+        quantite: panierFournisseur[code].quantite
+    }));
+
+    afficherFeedback('ok', '⏳ Validation en cours…');
+
+    fetch('/api/commande_fournisseur/nouvelle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ produits })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            panierFournisseur = {};
+            majPanierFournisseur();
+            chargerSuggestions();
+            chargerCatalogue();
+            afficherFeedback('ok', `✅ Commande fournisseur #${data.cmd_id} validée !`);
+            setTimeout(() => {
+                document.getElementById('feedbackGlobal').classList.remove('show');
+            }, 4000);
+        } else {
+            afficherFeedback('error', '❌ Erreur : ' + data.error);
+        }
+    })
+    .catch(err => {
+        afficherFeedback('error', '❌ Erreur réseau : ' + err.message);
+    });
+}
+
+// ════════════════════════════════════════════════
+//  HISTORIQUE COMMANDES FOURNISSEUR
+// ════════════════════════════════════════════════
+function chargerHistoFournisseur() {
+    fetch('/api/commandes_fournisseur')
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            histoFournisseurData = data.commandes;
+            afficherHistoFournisseur();
+        }
+    });
+}
+
+function afficherHistoFournisseur() {
+    const container = document.getElementById('histoFournisseurList');
+    if (histoFournisseurData.length === 0) {
+        container.innerHTML = '<p class="empty-msg">Aucune commande fournisseur.</p>';
+        return;
+    }
+    container.innerHTML = histoFournisseurData.map(cmd => {
+        const total = cmd.produits.reduce((s, p) => s + p.quantite, 0);
+        return `
+        <div class="cmd-card">
+            <div class="cmd-card-header" onclick="toggleHistoFourn('${cmd.id}')">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="cmd-badge">${cmd.id}</span>
+                    <span style="font-weight:bold;color:#2c3e50;">${cmd.date} ${cmd.heure}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <span class="cmd-info">${total} articles · ${cmd.produits.length} réf.</span>
+                    <span class="cmd-chev" id="chev-fourn-${cmd.id}">▶</span>
+                </div>
+            </div>
+            <div class="cmd-detail" id="detail-fourn-${cmd.id}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Produit</th>
+                            <th style="text-align:center;">Quantité</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${cmd.produits.map(p => `
+                        <tr>
+                            <td><code>${p.code}</code></td>
+                            <td>${p.nom}</td>
+                            <td style="text-align:center;font-weight:bold;">${p.quantite}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                <button class="btn-download btn-pdf" onclick="pdfFournisseur('${cmd.id}')">
+                    📄 PDF
+                </button>
+                <button class="btn-download btn-csv" onclick="csvFournisseur('${cmd.id}')">
+                    📥 CSV
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleHistoFourn(id) {
+    document.getElementById('detail-fourn-' + id).classList.toggle('open');
+    document.getElementById('chev-fourn-' + id).classList.toggle('open');
+}
+
+function pdfFournisseur(cmdId) {
+    window.open('/api/commande_fournisseur/pdf/' + cmdId, '_blank');
+}
+
+function csvFournisseur(cmdId) {
+    window.open('/api/commande_fournisseur/csv/' + cmdId, '_blank');
+}
+
+function exportCSVGlobal() {
+    window.open('/api/commandes_fournisseur/csv', '_blank');
+}
+
+// ════════════════════════════════════════════════
+//  FEEDBACK
+// ════════════════════════════════════════════════
+function afficherFeedback(type, message) {
+    const fb = document.getElementById('feedbackGlobal');
+    const classes = { ok: 'feedback ok show', error: 'feedback error show', warn: 'feedback warn show' };
+    fb.className = classes[type] || 'feedback show';
+    fb.textContent = message;
+}
+</script>
+
+</body>
+</html>
