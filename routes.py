@@ -749,14 +749,51 @@ def api_nouvelle_commande_fournisseur():
                     quantite = qte,
                 ))
 
-                # Mettre à jour le stock (on augmente le stock)
-                produit = Produit.query.get(p['code'])
-                if produit:
-                    produit.stock += qte
-
         db.session.commit()
 
         return jsonify({'ok': True, 'cmd_id': cmd_id})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/commande_fournisseur/reception', methods=['POST'])
+def api_reception_commande_fournisseur():
+    """Valide la réception d'une commande fournisseur et met à jour le stock."""
+    try:
+        data = request.json
+        cmd_id = data.get('cmd_id')
+        produits = data.get('produits', [])
+
+        if not cmd_id or not produits:
+            return jsonify({'ok': False, 'error': 'Données manquantes'}), 400
+
+        lignes = CommandeFournisseur.query.filter_by(cmd_id=cmd_id).all()
+        if not lignes:
+            return jsonify({'ok': False, 'error': 'Commande introuvable'}), 404
+
+        for p in produits:
+            code = p.get('code')
+            quantite_recue = int(p.get('quantite_recue', 0))
+            rupture = p.get('rupture', False)
+
+            # Mettre à jour chaque ligne de la commande
+            for ligne in lignes:
+                if ligne.code == code:
+                    ligne.statut = 'recue'
+                    ligne.quantite_recue = quantite_recue
+                    ligne.rupture = rupture
+
+            # Mettre à jour le stock
+            if quantite_recue > 0:
+                produit = Produit.query.get(code)
+                if produit:
+                    produit.stock += quantite_recue
+
+        db.session.commit()
+        return jsonify({'ok': True, 'message': f'Réception validée pour {cmd_id}'})
 
     except Exception as e:
         import traceback
@@ -778,12 +815,22 @@ def api_commandes_fournisseur():
                 'id':       r.cmd_id,
                 'date':     r.date,
                 'heure':    r.heure,
+                'statut':   'recue',
                 'produits': [],
             }
+        # Récupérer la catégorie depuis le catalogue
+        produit = Produit.query.get(r.code)
+        categorie = produit.categorie if produit else ''
+        if r.statut != 'recue':
+            commandes[r.cmd_id]['statut'] = 'en_attente'
         commandes[r.cmd_id]['produits'].append({
-            'code':     r.code,
-            'nom':      r.nom,
-            'quantite': r.quantite,
+            'code':      r.code,
+            'nom':       r.nom,
+            'quantite':  r.quantite,
+            'categorie': categorie,
+            'statut':    r.statut,
+            'quantite_recue': r.quantite_recue,
+            'rupture':   r.rupture,
         })
 
     return jsonify({'ok': True, 'commandes': list(commandes.values())})
@@ -817,11 +864,41 @@ def api_csv_commande_fournisseur(cmd_id):
     if not rows:
         return 'Commande introuvable', 404
 
+    # Récupérer la catégorie pour chaque produit
+    enriched = []
+    for r in rows:
+        produit = Produit.query.get(r.code)
+        enriched.append({
+            'code': r.code,
+            'nom': r.nom,
+            'categorie': produit.categorie if produit else '',
+            'quantite': r.quantite,
+        })
+
+    # Trier par catégorie puis par nom
+    enriched.sort(key=lambda x: (x['categorie'] or '', x['nom'] or ''))
+
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
-    writer.writerow(['Code', 'Produit', 'Quantite'])
-    for r in rows:
-        writer.writerow([r.code, r.nom, r.quantite])
+
+    # En-tête de la commande
+    writer.writerow(['COMMANDE FOURNISSEUR', f'#{cmd_id}'])
+    writer.writerow(['Date', f"{rows[0].date} {rows[0].heure}"])
+    writer.writerow([])
+    writer.writerow(['Catégorie', 'Code', 'Produit', 'Quantité'])
+
+    categorie_courante = None
+    for p in enriched:
+        cat = p['categorie'] or '(Sans catégorie)'
+        if cat != categorie_courante:
+            writer.writerow([f'── {cat} ──', '', '', ''])
+            categorie_courante = cat
+        writer.writerow([cat, p['code'], p['nom'], p['quantite']])
+
+    # Ligne de total
+    total_qte = sum(p['quantite'] for p in enriched)
+    writer.writerow([])
+    writer.writerow(['TOTAL', '', '', total_qte])
 
     output.seek(0)
     return send_file(
@@ -840,11 +917,44 @@ def api_csv_commandes_fournisseur():
         CommandeFournisseur.heure.desc()
     ).all()
 
+    # Récupérer la catégorie pour chaque produit et regrouper par commande
+    commandes = {}
+    for r in rows:
+        if r.cmd_id not in commandes:
+            commandes[r.cmd_id] = {
+                'id': r.cmd_id,
+                'date': r.date,
+                'heure': r.heure,
+                'produits': [],
+            }
+        produit = Produit.query.get(r.code)
+        commandes[r.cmd_id]['produits'].append({
+            'code': r.code,
+            'nom': r.nom,
+            'categorie': produit.categorie if produit else '',
+            'quantite': r.quantite,
+        })
+
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
-    writer.writerow(['Commande', 'Date', 'Heure', 'Code', 'Produit', 'Quantite'])
-    for r in rows:
-        writer.writerow([r.cmd_id, r.date, r.heure, r.code, r.nom, r.quantite])
+
+    # En-tête général
+    writer.writerow(['HISTORIQUE COMPLET - COMMANDES FOURNISSEUR'])
+    writer.writerow([])
+    writer.writerow(['Commande', 'Date', 'Heure', 'Catégorie', 'Code', 'Produit', 'Quantité'])
+
+    ordre_commandes = sorted(commandes.values(), key=lambda c: c['date'] + c['heure'], reverse=True)
+    for cmd in ordre_commandes:
+        # Trier les produits par catégorie
+        cmd['produits'].sort(key=lambda x: (x['categorie'] or '', x['nom'] or ''))
+        categorie_courante = None
+        for p in cmd['produits']:
+            cat = p['categorie'] or '(Sans catégorie)'
+            if cat != categorie_courante:
+                writer.writerow([cmd['id'], cmd['date'], cmd['heure'], f'── {cat} ──', '', '', ''])
+                categorie_courante = cat
+            writer.writerow([cmd['id'], cmd['date'], cmd['heure'], cat, p['code'], p['nom'], p['quantite']])
+        writer.writerow([])  # ligne vide entre chaque commande
 
     output.seek(0)
     return send_file(

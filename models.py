@@ -63,6 +63,9 @@ class CommandeFournisseur(db.Model):
     code = db.Column(db.String(50), nullable=False)
     nom = db.Column(db.String(200), default='')
     quantite = db.Column(db.Integer, default=0)
+    statut = db.Column(db.String(20), default='en_attente')   # en_attente / recue
+    quantite_recue = db.Column(db.Integer, default=0)
+    rupture = db.Column(db.Integer, default=0)
 
     def to_dict(self):
         return {
@@ -73,4 +76,7 @@ class CommandeFournisseur(db.Model):
             'code': self.code,
             'nom': self.nom,
             'quantite': self.quantite,
+            'statut': self.statut,
+            'quantite_recue': self.quantite_recue,
+            'rupture': self.rupture,
         }

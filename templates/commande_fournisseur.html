@@ -397,6 +397,7 @@
     <!-- ═══ ONGLETS ═══ -->
     <div class="histo-tabs">
         <button class="histo-tab active" onclick="switchFournTab('nouvelle', this)">➕ Nouvelle commande</button>
+        <button class="histo-tab" onclick="switchFournTab('reception', this)">📥 Réception</button>
         <button class="histo-tab" onclick="switchFournTab('historique', this)">📋 Historique</button>
     </div>
 
@@ -450,6 +451,20 @@
         </div>
     </div>
 
+    <!-- ══ RÉCEPTION ══ -->
+    <div id="fourn-tab-reception" class="fourn-tab-content" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="color:#2c3e50;">📥 Réception de commandes fournisseur</h2>
+            <button onclick="chargerCommandesEnAttente()"
+                    style="padding:8px 16px;background:#3498db;color:white;border:none;border-radius:8px;cursor:pointer;">
+                🔄 Rafraîchir
+            </button>
+        </div>
+        <div id="receptionList">
+            <p class="empty-msg">Chargement…</p>
+        </div>
+    </div>
+
     <!-- ══ HISTORIQUE ══ -->
     <div id="fourn-tab-historique" class="fourn-tab-content" style="display:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -497,6 +512,7 @@ function switchFournTab(name, btn) {
     document.getElementById('fourn-tab-' + name).style.display = 'block';
     if (btn) btn.classList.add('active');
     if (name === 'historique') chargerHistoFournisseur();
+    if (name === 'reception') chargerCommandesEnAttente();
 }
 
 // ════════════════════════════════════════════════
@@ -531,24 +547,31 @@ function afficherCatalogue(produits) {
         container.innerHTML = '<p class="empty-msg">Aucun produit trouvé</p>';
         return;
     }
-    container.innerHTML = produits.map(p => {
-        const inPanier = panierFournisseur[p.code];
-        const qte = inPanier ? inPanier.quantite : '';
-        return `
-        <div class="suggestion-row">
-            <span class="code">${p.code}</span>
-            <span class="nom">${p.nom}</span>
-            <div class="stock-info">
-                <span>
-                    <span class="label">Stock</span>
-                    <span class="val ${p.stock <= 0 ? 'rupture' : p.stock <= 5 ? 'bas' : 'ok'}">${p.stock}</span>
-                </span>
-            </div>
-            <input type="number" class="qte-input" min="0" value="${qte}"
-                   placeholder="Qté" id="cat-qte-${p.code}"
-                   onchange="ajouterDepuisCatalogue('${p.code}', this.value)"
-                   onfocus="this.select()">
-        </div>`;
+
+    const groupes = grouperParCategorie(produits, p => p.categorie);
+
+    container.innerHTML = groupes.map(g => {
+        const rows = g.items.map(p => {
+            const inPanier = panierFournisseur[p.code];
+            const qte = inPanier ? inPanier.quantite : '';
+            return `
+            <div class="suggestion-row">
+                <span class="code">${p.code}</span>
+                <span class="nom">${p.nom}</span>
+                <div class="stock-info">
+                    <span>
+                        <span class="label">Stock</span>
+                        <span class="val ${p.stock <= 0 ? 'rupture' : p.stock <= 5 ? 'bas' : 'ok'}">${p.stock}</span>
+                    </span>
+                </div>
+                <input type="number" class="qte-input" min="0" value="${qte}"
+                       placeholder="Qté" id="cat-qte-${p.code}"
+                       onchange="ajouterDepuisCatalogue('${p.code}', this.value)"
+                       onfocus="this.select()">
+            </div>`;
+        }).join('');
+        return `<div style="background:#e8f8f5;font-weight:bold;color:#0e6655;padding:8px 12px;border-bottom:2px solid #a3e4d7;font-size:0.85rem;">📁 ${g.categorie}</div>
+                ${rows}`;
     }).join('');
 }
 
@@ -587,33 +610,40 @@ function afficherSuggestions(suggestions) {
         container.innerHTML = '<p class="empty-msg">✅ Tous les produits ont un stock suffisant.</p>';
         return;
     }
-    container.innerHTML = suggestions.map(s => {
-        const qteSugg = Math.max(s.stock_maxi - s.stock, 1);
-        const inPanier = panierFournisseur[s.code];
-        const qte = inPanier ? inPanier.quantite : qteSugg;
-        return `
-        <div class="suggestion-row">
-            <span class="code">${s.code}</span>
-            <span class="nom">${s.nom}</span>
-            <div class="stock-info">
-                <span>
-                    <span class="label">Stock</span>
-                    <span class="val ${s.stock <= 0 ? 'rupture' : 'bas'}">${s.stock}</span>
-                </span>
-                <span>
-                    <span class="label">Mini</span>
-                    <span class="val ok">${s.stock_mini}</span>
-                </span>
-                <span>
-                    <span class="label">Maxi</span>
-                    <span class="val ok">${s.stock_maxi}</span>
-                </span>
-            </div>
-            <input type="number" class="qte-input" min="0" value="${qte}"
-                   id="sugg-qte-${s.code}"
-                   onchange="ajouterDepuisSuggestion('${s.code}', this.value)"
-                   onfocus="this.select()">
-        </div>`;
+
+    const groupes = grouperParCategorie(suggestions, s => s.categorie || getCategorieProduit(s.code));
+
+    container.innerHTML = groupes.map(g => {
+        const rows = g.items.map(s => {
+            const qteSugg = Math.max(s.stock_maxi - s.stock, 1);
+            const inPanier = panierFournisseur[s.code];
+            const qte = inPanier ? inPanier.quantite : qteSugg;
+            return `
+            <div class="suggestion-row">
+                <span class="code">${s.code}</span>
+                <span class="nom">${s.nom}</span>
+                <div class="stock-info">
+                    <span>
+                        <span class="label">Stock</span>
+                        <span class="val ${s.stock <= 0 ? 'rupture' : 'bas'}">${s.stock}</span>
+                    </span>
+                    <span>
+                        <span class="label">Mini</span>
+                        <span class="val ok">${s.stock_mini}</span>
+                    </span>
+                    <span>
+                        <span class="label">Maxi</span>
+                        <span class="val ok">${s.stock_maxi}</span>
+                    </span>
+                </div>
+                <input type="number" class="qte-input" min="0" value="${qte}"
+                       id="sugg-qte-${s.code}"
+                       onchange="ajouterDepuisSuggestion('${s.code}', this.value)"
+                       onfocus="this.select()">
+            </div>`;
+        }).join('');
+        return `<div style="background:#fef9e7;font-weight:bold;color:#7d6608;padding:8px 12px;border-bottom:2px solid #f9e79f;font-size:0.85rem;">📁 ${g.categorie}</div>
+                ${rows}`;
     }).join('');
 }
 
@@ -630,6 +660,27 @@ function ajouterDepuisSuggestion(code, qteStr) {
     panierFournisseur[code] = { nom: produit.nom, quantite: qte, categorie: produit.categorie || '' };
     majPanierFournisseur();
     chargerSuggestions();
+}
+
+// ════════════════════════════════════════════════
+//  HELPERS — regroupement par catégorie
+// ════════════════════════════════════════════════
+function grouperParCategorie(items, getCategorie) {
+    const grouped = {};
+    for (const item of items) {
+        const cat = getCategorie(item) || '(Sans catégorie)';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+    }
+    return Object.keys(grouped).sort().map(cat => ({ categorie: cat, items: grouped[cat] }));
+}
+
+function getCategorieProduit(code) {
+    if (panierFournisseur[code] && panierFournisseur[code].categorie) {
+        return panierFournisseur[code].categorie;
+    }
+    const p = catalogueData.find(c => c.code === code);
+    return p ? (p.categorie || '(Sans catégorie)') : '(Sans catégorie)';
 }
 
 // ════════════════════════════════════════════════
@@ -652,6 +703,27 @@ function majPanierFournisseur() {
         return;
     }
 
+    const entries = keys.map(code => ({ code, ...panierFournisseur[code] }));
+    const groupes = grouperParCategorie(entries, item => item.categorie || getCategorieProduit(item.code));
+
+    const lignes = groupes.map(g => {
+        const rows = g.items.map(item => `
+            <tr>
+                <td><code>${item.code}</code></td>
+                <td>${item.nom}</td>
+                <td style="text-align:center;">
+                    <input type="number" class="qte-edit" value="${item.quantite}" min="1"
+                           onchange="modifierQtePanier('${item.code}', this.value)">
+                </td>
+                <td>
+                    <button class="btn-suppr" onclick="supprimerDuPanier('${item.code}')">✕</button>
+                </td>
+            </tr>`).join('');
+        return `
+            <tr class="categorie-header"><td colspan="4" style="background:#eaf2f8;font-weight:bold;color:#2c3e50;padding:8px 12px;border-bottom:2px solid #aed6f1;font-size:0.85rem;">📁 ${g.categorie}</td></tr>
+            ${rows}`;
+    }).join('');
+
     container.innerHTML = `
         <table class="panier-table">
             <thead>
@@ -663,21 +735,7 @@ function majPanierFournisseur() {
                 </tr>
             </thead>
             <tbody>
-                ${keys.map(code => {
-                    const p = panierFournisseur[code];
-                    return `
-                    <tr>
-                        <td><code>${code}</code></td>
-                        <td>${p.nom}</td>
-                        <td style="text-align:center;">
-                            <input type="number" class="qte-edit" value="${p.quantite}" min="1"
-                                   onchange="modifierQtePanier('${code}', this.value)">
-                        </td>
-                        <td>
-                            <button class="btn-suppr" onclick="supprimerDuPanier('${code}')">✕</button>
-                        </td>
-                    </tr>`;
-                }).join('')}
+                ${lignes}
             </tbody>
         </table>`;
 }
@@ -775,6 +833,19 @@ function afficherHistoFournisseur() {
     }
     container.innerHTML = histoFournisseurData.map(cmd => {
         const total = cmd.produits.reduce((s, p) => s + p.quantite, 0);
+        // Grouper les produits par catégorie
+        const groupes = grouperParCategorie(cmd.produits, p => p.categorie || '');
+        const lignes = groupes.map(g => {
+            const rows = g.items.map(p => `
+                        <tr>
+                            <td><code>${p.code}</code></td>
+                            <td>${p.nom}</td>
+                            <td style="text-align:center;font-weight:bold;">${p.quantite}</td>
+                        </tr>`).join('');
+            return `
+                        <tr class="categorie-header"><td colspan="3" style="background:#eaf2f8;font-weight:bold;color:#2c3e50;padding:7px 10px;border-bottom:2px solid #aed6f1;font-size:0.85rem;">📁 ${g.categorie}</td></tr>
+                        ${rows}`;
+        }).join('');
         return `
         <div class="cmd-card">
             <div class="cmd-card-header" onclick="toggleHistoFourn('${cmd.id}')">
@@ -797,12 +868,7 @@ function afficherHistoFournisseur() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${cmd.produits.map(p => `
-                        <tr>
-                            <td><code>${p.code}</code></td>
-                            <td>${p.nom}</td>
-                            <td style="text-align:center;font-weight:bold;">${p.quantite}</td>
-                        </tr>`).join('')}
+                        ${lignes}
                     </tbody>
                 </table>
                 <button class="btn-download btn-pdf" onclick="pdfFournisseur('${cmd.id}')">
@@ -831,6 +897,146 @@ function csvFournisseur(cmdId) {
 
 function exportCSVGlobal() {
     window.open('/api/commandes_fournisseur/csv', '_blank');
+}
+
+// ════════════════════════════════════════════════
+//  RÉCEPTION COMMANDE FOURNISSEUR
+// ════════════════════════════════════════════════
+function chargerCommandesEnAttente() {
+    fetch('/api/commandes_fournisseur')
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            const enAttente = data.commandes.filter(cmd => cmd.statut === 'en_attente');
+            afficherReception(enAttente);
+        }
+    });
+}
+
+function afficherReception(commandes) {
+    const container = document.getElementById('receptionList');
+    if (commandes.length === 0) {
+        container.innerHTML = '<p class="empty-msg">✅ Aucune commande en attente de réception.</p>';
+        return;
+    }
+
+    container.innerHTML = commandes.map(cmd => {
+        const groupes = grouperParCategorie(cmd.produits, p => p.categorie || '');
+        const lignes = groupes.map(g => {
+            const rows = g.items.map(p => `
+                        <tr>
+                            <td><code>${p.code}</code></td>
+                            <td>${p.nom}</td>
+                            <td style="text-align:center;font-weight:bold;">${p.quantite}</td>
+                            <td style="text-align:center;">
+                                <input type="number" class="qte-edit" value="${p.quantite}" min="0" max="${p.quantite}"
+                                       id="recep-qte-${cmd.id}-${p.code}"
+                                       style="background:#fff3cd;">
+                            </td>
+                            <td style="text-align:center;">
+                                <input type="checkbox" id="recep-rupt-${cmd.id}-${p.code}"
+                                       style="width:18px;height:18px;cursor:pointer;"
+                                       onchange="toggleRuptureRecep('${cmd.id}', '${p.code}')">
+                            </td>
+                        </tr>`).join('');
+            return `
+                        <tr class="categorie-header"><td colspan="5" style="background:#eaf2f8;font-weight:bold;color:#2c3e50;padding:7px 10px;border-bottom:2px solid #aed6f1;font-size:0.85rem;">📁 ${g.categorie}</td></tr>
+                        ${rows}`;
+        }).join('');
+
+        const totalCmd = cmd.produits.reduce((s, p) => s + p.quantite, 0);
+        return `
+        <div class="cmd-card" style="border:2px solid #f39c12;">
+            <div class="cmd-card-header" onclick="toggleHistoFourn('recep-${cmd.id}')"
+                 style="background:#fef9e7;border-bottom:2px solid #f9e79f;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="cmd-badge" style="background:#e67e22;">${cmd.id}</span>
+                    <span style="font-weight:bold;color:#2c3e50;">${cmd.date} ${cmd.heure}</span>
+                    <span style="background:#f39c12;color:white;padding:2px 10px;border-radius:12px;font-size:0.8rem;">⏳ En attente</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <span class="cmd-info">${totalCmd} articles · ${cmd.produits.length} réf.</span>
+                    <span class="cmd-chev" id="chev-fourn-recep-${cmd.id}">▶</span>
+                </div>
+            </div>
+            <div class="cmd-detail open" id="detail-fourn-recep-${cmd.id}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Produit</th>
+                            <th style="text-align:center;">Commandé</th>
+                            <th style="text-align:center;">Reçu</th>
+                            <th style="text-align:center;">Rupture ⚠️</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lignes}
+                    </tbody>
+                </table>
+                <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                    <button class="btn-valider" onclick="validerReception('${cmd.id}')">
+                        ✅ Valider la réception
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleRuptureRecep(cmdId, code) {
+    const checkbox = document.getElementById('recep-rupt-' + cmdId + '-' + code);
+    const qteInput = document.getElementById('recep-qte-' + cmdId + '-' + code);
+    if (checkbox.checked) {
+        qteInput.value = 0;
+        qteInput.disabled = true;
+        qteInput.style.background = '#f8d7da';
+    } else {
+        qteInput.disabled = false;
+        qteInput.style.background = '#fff3cd';
+    }
+}
+
+function validerReception(cmdId) {
+    if (!confirm(`Confirmer la réception de la commande ${cmdId} ?\nLe stock sera mis à jour avec les quantités reçues.`)) return;
+
+    // Récupérer les codes produits depuis les champs du DOM
+    const qteInputs = document.querySelectorAll('[id^="recep-qte-' + cmdId + '-"]');
+    const produits = [];
+    qteInputs.forEach(input => {
+        const code = input.id.replace('recep-qte-' + cmdId + '-', '');
+        const ruptCheck = document.getElementById('recep-rupt-' + cmdId + '-' + code);
+        produits.push({
+            code: code,
+            quantite_recue: parseInt(input.value) || 0,
+            rupture: ruptCheck ? ruptCheck.checked : false,
+        });
+    });
+
+    afficherFeedback('ok', '⏳ Validation de la réception en cours…');
+
+    fetch('/api/commande_fournisseur/reception', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd_id: cmdId, produits })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            afficherFeedback('ok', `✅ Réception validée pour ${cmdId} — Stock mis à jour !`);
+            chargerCommandesEnAttente();
+            // Recharger les suggestions et le stock
+            chargerSuggestions();
+            setTimeout(() => {
+                document.getElementById('feedbackGlobal').classList.remove('show');
+            }, 4000);
+        } else {
+            afficherFeedback('error', '❌ Erreur : ' + data.error);
+        }
+    })
+    .catch(err => {
+        afficherFeedback('error', '❌ Erreur réseau : ' + err.message);
+    });
 }
 
 // ════════════════════════════════════════════════
