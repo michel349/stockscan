@@ -912,7 +912,7 @@ def api_pdf_commande_fournisseur(cmd_id):
 
 @bp.route('/api/commande_fournisseur/excel/<cmd_id>')
 def api_excel_commande_fournisseur(cmd_id):
-    """Génère un fichier Excel au format commande hebdomadaire, groupé par catégorie."""
+    """Génère un Excel simple et imprimable, groupé par catégorie, tenant sur 1 page."""
     import openpyxl
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from io import BytesIO
@@ -945,161 +945,148 @@ def api_excel_commande_fournisseur(cmd_id):
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "LISTING"
+    ws.title = "Commande"
 
-    # Styles
-    title_font = Font(name='Calibri', bold=True, size=14, color='FFFFFF')
-    title_fill = PatternFill("solid", fgColor="2C3E50")
-    header_font = Font(name='Calibri', bold=True, size=10, color='FFFFFF')
-    normal_font = Font(name='Calibri', size=10)
-    code_font = Font(name='Calibri', size=9, color='555555')
-    qty_font = Font(name='Calibri', bold=True, size=11, color='C0392B')
-    cat_font = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
-    total_font = Font(name='Calibri', bold=True, size=11)
+    # ═══ MISE EN PAGE POUR IMPRESSION ═══
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.page_margins.left = 0.4
+    ws.page_margins.right = 0.4
+    ws.page_margins.top = 0.3
+    ws.page_margins.bottom = 0.3
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    # Styles simples
+    base_font = Font(name='Calibri', size=9)
+    bold_font = Font(name='Calibri', size=9, bold=True)
+    title_font = Font(name='Calibri', size=12, bold=True, color='FFFFFF')
+    qty_font = Font(name='Calibri', size=9, bold=True)
+    cat_font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
     thin_border = Border(
         left=Side(style='thin'),
         right=Side(style='thin'),
         top=Side(style='thin'),
         bottom=Side(style='thin')
     )
-    header_fill = PatternFill("solid", fgColor="34495E")
+    header_fill = PatternFill("solid", fgColor="2C3E50")
+    cat_fill = PatternFill("solid", fgColor="7F8C8D")
+    total_fill = PatternFill("solid", fgColor="2C3E50")
 
-    # Palette de couleurs pour les catégories
-    cat_colors = [
-        "2980B9", "8E44AD", "27AE60", "D35400",
-        "C0392B", "16A085", "F39C12", "2C3E50",
-        "7F8C8D", "1ABC9C"
-    ]
-
-    # Largeurs colonnes
-    ws.column_dimensions['A'].width = 16
-    ws.column_dimensions['B'].width = 52
-    ws.column_dimensions['C'].width = 14
-    ws.column_dimensions['D'].width = 16
-    ws.column_dimensions['E'].width = 52
-    ws.column_dimensions['F'].width = 14
+    # Largeurs colonnes serrées pour tenir sur une page
+    ws.column_dimensions['A'].width = 13
+    ws.column_dimensions['B'].width = 40
+    ws.column_dimensions['C'].width = 8
+    ws.column_dimensions['D'].width = 13
+    ws.column_dimensions['E'].width = 40
+    ws.column_dimensions['F'].width = 8
 
     row = 1
 
-    # ── En-tête du document ──
+    # ── Ligne 1 : Titre ──
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-    cell = ws.cell(row=row, column=1, value="COMMANDE HEBDOMADAIRE FOURNISSEUR")
+    cell = ws.cell(row=row, column=1, value="COMMANDE FOURNISSEUR")
     cell.font = title_font
-    cell.fill = title_fill
+    cell.fill = header_fill
     cell.alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[row].height = 36
+    ws.row_dimensions[row].height = 22
     row += 1
 
-    # Infos commande
-    ws.cell(row=row, column=1, value=f"Date :").font = Font(name='Calibri', bold=True, size=10)
-    ws.cell(row=row, column=2, value=f"{rows[0].date} à {rows[0].heure}").font = normal_font
-    ws.cell(row=row, column=4, value=f"Commande :").font = Font(name='Calibri', bold=True, size=10)
-    ws.cell(row=row, column=5, value=cmd_id).font = normal_font
-    ws.cell(row=row, column=5).font = Font(name='Calibri', size=10, color='2980B9')
-    row += 1
-
+    # ── Ligne 2 : Infos ──
     total_articles = sum(p['quantite'] for p in enriched)
-    ws.cell(row=row, column=1, value=f"Total :").font = Font(name='Calibri', bold=True, size=10)
-    ws.cell(row=row, column=2, value=f"{total_articles} articles — {len(enriched)} références").font = Font(name='Calibri', size=10, color='27AE60')
+    ws.cell(row=row, column=1, value=f"Date : {rows[0].date}").font = bold_font
+    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
+    ws.cell(row=row, column=2, value=f"N° {cmd_id}").font = base_font
+    ws.cell(row=row, column=4, value=f"Total :").font = bold_font
+    ws.cell(row=row, column=4).alignment = Alignment(horizontal='right')
+    ws.merge_cells(start_row=row, start_column=5, end_row=row, end_column=6)
+    ws.cell(row=row, column=5, value=f"{total_articles} art. / {len(enriched)} réf.").font = bold_font
+    ws.row_dimensions[row].height = 18
     row += 1
-    row += 1  # ligne vide
 
-    # ── En-têtes des colonnes ──
-    for col, label in [(1, 'RÉFÉRENCE'), (2, 'DÉSIGNATION'), (3, 'QUANTITÉ'),
-                        (4, 'RÉFÉRENCE'), (5, 'DÉSIGNATION'), (6, 'QUANTITÉ')]:
+    # ── Ligne vide ──
+    row += 1
+
+    # ── En-têtes colonnes ──
+    for col, label in [(1, 'REF'), (2, 'DESIGNATION'), (3, 'QTÉ'),
+                        (4, 'REF'), (5, 'DESIGNATION'), (6, 'QTÉ')]:
         cell = ws.cell(row=row, column=col, value=label)
-        cell.font = header_font
+        cell.font = Font(name='Calibri', size=8, bold=True, color='FFFFFF')
         cell.fill = header_fill
         cell.border = thin_border
         cell.alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[row].height = 24
+    ws.row_dimensions[row].height = 16
     row += 1
 
     # ── Produits groupés par catégorie en 2 colonnes ──
-    cat_index = 0
     for cat_name in sorted(categories.keys()):
         produits_cat = categories[cat_name]
-        color = cat_colors[cat_index % len(cat_colors)]
-        cat_index += 1
-        cat_fill_color = PatternFill("solid", fgColor=color)
 
-        # Ligne de séparation de catégorie fusionnée sur 6 colonnes
+        # Ligne catégorie
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-        cell = ws.cell(row=row, column=1, value=f"  📁  {cat_name}")
+        cell = ws.cell(row=row, column=1, value=f"  {cat_name}")
         cell.font = cat_font
-        cell.fill = cat_fill_color
+        cell.fill = cat_fill
         cell.alignment = Alignment(vertical='center')
-        ws.row_dimensions[row].height = 26
+        ws.row_dimensions[row].height = 16
         row += 1
 
-        # Répartir les produits de la catégorie en 2 colonnes
+        # Répartir en 2 colonnes
         half = (len(produits_cat) + 1) // 2
         col1 = produits_cat[:half]
         col2 = produits_cat[half:]
         max_rows_cat = max(len(col1), len(col2))
 
         for i in range(max_rows_cat):
-            # Colonne gauche
             if i < len(col1):
                 p = col1[i]
-                ws.cell(row=row, column=1, value=p['code']).font = code_font
+                ws.cell(row=row, column=1, value=p['code']).font = base_font
                 ws.cell(row=row, column=1).border = thin_border
-                ws.cell(row=row, column=2, value=p['nom']).font = normal_font
+                ws.cell(row=row, column=2, value=p['nom']).font = base_font
                 ws.cell(row=row, column=2).border = thin_border
                 qty_cell = ws.cell(row=row, column=3, value=p['quantite'])
                 qty_cell.font = qty_font
                 qty_cell.border = thin_border
                 qty_cell.alignment = Alignment(horizontal='center')
-                # Alternance couleur de ligne
-                if i % 2 == 1:
-                    for c in [1, 2, 3]:
-                        ws.cell(row=row, column=c).fill = PatternFill("solid", fgColor="F5F5F5")
 
-            # Colonne droite
             if i < len(col2):
                 p = col2[i]
-                ws.cell(row=row, column=4, value=p['code']).font = code_font
+                ws.cell(row=row, column=4, value=p['code']).font = base_font
                 ws.cell(row=row, column=4).border = thin_border
-                ws.cell(row=row, column=5, value=p['nom']).font = normal_font
+                ws.cell(row=row, column=5, value=p['nom']).font = base_font
                 ws.cell(row=row, column=5).border = thin_border
                 qty_cell = ws.cell(row=row, column=6, value=p['quantite'])
                 qty_cell.font = qty_font
                 qty_cell.border = thin_border
                 qty_cell.alignment = Alignment(horizontal='center')
-                if i % 2 == 1:
-                    for c in [4, 5, 6]:
-                        ws.cell(row=row, column=c).fill = PatternFill("solid", fgColor="F5F5F5")
 
-            ws.row_dimensions[row].height = 22
+            ws.row_dimensions[row].height = 14
             row += 1
 
-        # Ligne vide entre chaque catégorie
-        row += 1
-
-    # ── Ligne de total général ──
+    # ── Total ──
+    row += 1
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=4)
-    total_label = ws.cell(row=row, column=1, value="TOTAL GÉNÉRAL")
-    total_label.font = Font(name='Calibri', bold=True, size=12, color='FFFFFF')
-    total_label.fill = PatternFill("solid", fgColor="2C3E50")
-    total_label.alignment = Alignment(horizontal='right', vertical='center')
-    total_label.border = thin_border
+    cell = ws.cell(row=row, column=1, value="TOTAL")
+    cell.font = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
+    cell.fill = total_fill
+    cell.alignment = Alignment(horizontal='right', vertical='center')
+    cell.border = thin_border
     for c in [2, 3, 4]:
-        ws.cell(row=row, column=c).fill = PatternFill("solid", fgColor="2C3E50")
+        ws.cell(row=row, column=c).fill = total_fill
         ws.cell(row=row, column=c).border = thin_border
-
-    total_val = ws.cell(row=row, column=5, value=f"{total_articles} articles")
-    total_val.font = Font(name='Calibri', bold=True, size=12, color='FFFFFF')
-    total_val.fill = PatternFill("solid", fgColor="27AE60")
+    total_val = ws.cell(row=row, column=5, value=total_articles)
+    total_val.font = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
+    total_val.fill = total_fill
     total_val.alignment = Alignment(horizontal='center', vertical='center')
     total_val.border = thin_border
-    total_ref = ws.cell(row=row, column=6, value=f"{len(enriched)} réf.")
-    total_ref.font = Font(name='Calibri', bold=True, size=12, color='FFFFFF')
-    total_ref.fill = PatternFill("solid", fgColor="27AE60")
+    total_ref = ws.cell(row=row, column=6, value=f"{len(enriched)} réf")
+    total_ref.font = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
+    total_ref.fill = total_fill
     total_ref.alignment = Alignment(horizontal='center', vertical='center')
     total_ref.border = thin_border
-    ws.row_dimensions[row].height = 30
+    ws.row_dimensions[row].height = 20
 
-    # Sauvegarder dans un buffer
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
