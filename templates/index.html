@@ -655,13 +655,20 @@
 
         <!-- En-tête stock -->
         <div style="display:flex;justify-content:space-between;
-                    align-items:center;margin-bottom:16px;">
+                    align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
             <h2 style="color:#2c3e50;">📊 État du stock</h2>
-            <button onclick="chargerStock()"
-                    style="padding:8px 16px;background:#3498db;color:white;
-                           border:none;border-radius:8px;cursor:pointer;">
-                🔄 Actualiser
-            </button>
+            <div style="display:flex;gap:8px;">
+                <button onclick="ouvrirAjoutProduit()"
+                        style="padding:8px 16px;background:#27ae60;color:white;
+                               border:none;border-radius:8px;cursor:pointer;font-weight:bold;">
+                    ➕ Nouveau produit
+                </button>
+                <button onclick="chargerStock()"
+                        style="padding:8px 16px;background:#3498db;color:white;
+                               border:none;border-radius:8px;cursor:pointer;">
+                    🔄 Actualiser
+                </button>
+            </div>
         </div>
 
         <!-- Stats globales -->
@@ -795,6 +802,23 @@
         <div class="modale-actions">
             <button class="btn-ok"     onclick="confirmerArrivage()">✅ Confirmer</button>
             <button class="btn-cancel" onclick="fermerArrivage()">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODALE AJOUT PRODUIT ── -->
+<div class="modale-overlay" id="modaleAjoutProduit">
+    <div class="modale-box">
+        <h3>➕ Nouveau produit</h3>
+        <input type="text" id="np-code" placeholder="Code produit (ex: NOUVEAU1)" autocomplete="off">
+        <input type="text" id="np-nom" placeholder="Nom du produit" autocomplete="off">
+        <select id="np-cat" style="width:100%;padding:10px 14px;border:2px solid #dee2e6;border-radius:8px;font-size:1rem;margin-bottom:16px;outline:none;">
+            <option value="">Sélectionner une catégorie…</option>
+        </select>
+        <input type="number" id="np-stock" placeholder="Stock initial" min="0" value="0">
+        <div class="modale-actions">
+            <button class="btn-ok"     onclick="confirmerAjoutProduit()">✅ Ajouter</button>
+            <button class="btn-cancel" onclick="fermerAjoutProduit()">Annuler</button>
         </div>
     </div>
 </div>
@@ -1240,6 +1264,69 @@ function toggleCat(catId) {
 }
 
 // ════════════════════════════════════════════════
+//  AJOUT PRODUIT
+// ════════════════════════════════════════════════
+async function ouvrirAjoutProduit() {
+    document.getElementById('np-code').value = '';
+    document.getElementById('np-nom').value = '';
+    document.getElementById('np-stock').value = '0';
+
+    // Charger les catégories depuis l'API
+    const select = document.getElementById('np-cat');
+    select.innerHTML = '<option value="">Chargement…</option>';
+    try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        if (data.ok && data.categories.length > 0) {
+            select.innerHTML = '<option value="">Sélectionner une catégorie…</option>';
+            data.categories.forEach(cat => {
+                select.innerHTML += `<option value="${cat}">${cat}</option>`;
+            });
+        } else {
+            select.innerHTML = '<option value="">Aucune catégorie</option>';
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="">Erreur chargement</option>';
+    }
+
+    document.getElementById('modaleAjoutProduit').classList.add('open');
+    setTimeout(() => document.getElementById('np-code').focus(), 100);
+}
+
+function fermerAjoutProduit() {
+    document.getElementById('modaleAjoutProduit').classList.remove('open');
+}
+
+async function confirmerAjoutProduit() {
+    const code = document.getElementById('np-code').value.trim().toUpperCase();
+    const nom  = document.getElementById('np-nom').value.trim();
+    const cat  = document.getElementById('np-cat').value.trim();
+    const stock = parseInt(document.getElementById('np-stock').value) || 0;
+
+    if (!code) { alert('Le code produit est requis'); return; }
+    if (!nom)  { alert('Le nom du produit est requis'); return; }
+
+    const res = await fetch('/api/produit/nouveau', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, nom, categorie: cat, stock })
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+        fermerAjoutProduit();
+        chargerStock();
+        alert(`✅ Produit "${nom}" (${code}) ajouté avec succès !`);
+    } else {
+        alert('❌ Erreur : ' + (data.error || 'Inconnue'));
+    }
+}
+
+document.getElementById('modaleAjoutProduit').addEventListener('click', function(e) {
+    if (e.target === this) fermerAjoutProduit();
+});
+
+// ════════════════════════════════════════════════
 //  ARRIVAGE
 // ════════════════════════════════════════════════
 function ouvrirArrivage(code, nom) {
@@ -1443,9 +1530,13 @@ ${ cmd.date_retrait ? `
                     </tbody>
                 </table>
                 <div style="display:flex;gap:10px;margin-top:12px;">
-                <button class="btn-pdf" style="background:#27ae60;" 
+                <button class="btn-pdf" style="background:#27ae60;flex:1;" 
                         data-cmdid="${cmd.id}" onclick="preparerCommandeDA(this.dataset.cmdid)">
-                    ▶ Préparer cette commande
+                    📋 Préparer (scan)
+                </button>
+                <button class="btn-pdf" style="background:#2980b9;flex:1;" 
+                        data-cmdid="${cmd.id}" onclick="validerDirectementDA(this.dataset.cmdid)">
+                    ✅ Valider directement
                 </button>
                 </div>
             </div>
@@ -1456,6 +1547,55 @@ ${ cmd.date_retrait ? `
 function toggleCmdDA(id) {
     document.getElementById('detail-da-' + id).classList.toggle('open');
     document.getElementById('chev-da-' + id).classList.toggle('open');
+}
+
+// ════════════════════════════════════════════════
+//  VALIDER DIRECTEMENT UNE COMMANDE DA
+// ════════════════════════════════════════════════
+async function validerDirectementDA(cmdId) {
+    const cmd = commandesDA.find(c => c.id === cmdId);
+    if (!cmd) return;
+
+    if (!confirm(`Valider directement la commande #${cmdId} pour ${cmd.destination} ?\n${cmd.produits.length} produit(s), ${cmd.produits.reduce((s,p) => s + p.quantite, 0)} article(s)\n\nLe stock sera déduit automatiquement.`)) return;
+
+    // 1. Construire les produits comme pour /valider_commande
+    const produits = cmd.produits.map(p => ({
+        code: p.code,
+        nom: p.nom,
+        quantite: p.quantite
+    }));
+
+    try {
+        // 2. Valider la commande (déduit le stock + écrit dans historique)
+        const res1 = await fetch('/valider_commande', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ destination: cmd.destination, produits })
+        });
+        const data1 = await res1.json();
+
+        if (!data1.ok) {
+            alert('❌ Erreur validation : ' + (data1.error || 'Inconnue'));
+            return;
+        }
+
+        // 3. Marquer la DA comme validée
+        const res2 = await fetch('/valider_commande_da', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cmd_id: cmdId })
+        });
+        const data2 = await res2.json();
+
+        if (data2.ok) {
+            alert(`✅ Commande #${cmdId} validée avec succès !\n${data1.cmd_id} — ${produits.length} produit(s) déduits du stock.`);
+            chargerCommandesDA(); // Rafraîchir la liste
+        } else {
+            alert('❌ Erreur marquage DA : ' + (data2.error || 'Inconnue'));
+        }
+    } catch (e) {
+        alert('❌ Erreur réseau : ' + e.message);
+    }
 }
 
 // ════════════════════════════════════════════════

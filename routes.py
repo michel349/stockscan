@@ -566,6 +566,59 @@ def stock_info():
 
 
 # ══════════════════════════════════════════════════════════════
+#  AJOUT / MODIFICATION PRODUIT
+# ══════════════════════════════════════════════════════════════
+
+@bp.route('/api/categories')
+def api_categories():
+    """Retourne la liste des catégories distinctes."""
+    categories = db.session.query(Produit.categorie)\
+        .distinct()\
+        .filter(Produit.categorie != '')\
+        .order_by(Produit.categorie).all()
+    return jsonify({
+        'ok': True,
+        'categories': [c[0] for c in categories]
+    })
+
+
+@bp.route('/api/produit/nouveau', methods=['POST'])
+def api_nouveau_produit():
+    try:
+        data = request.json
+        code = data.get('code', '').strip().upper()
+        nom  = data.get('nom', '').strip()
+        cat  = data.get('categorie', '').strip()
+        stock_init = int(data.get('stock', 0))
+
+        if not code or not nom:
+            return jsonify({'ok': False, 'error': 'Code et nom requis'}), 400
+
+        # Vérifier si le code existe déjà
+        existing = Produit.query.get(code)
+        if existing:
+            return jsonify({'ok': False, 'error': f'Le code "{code}" existe déjà'}), 409
+
+        produit = Produit(
+            code=code,
+            nom=nom,
+            categorie=cat or '',
+            stock=stock_init,
+            stock_mini=0,
+            stock_maxi=0,
+        )
+        db.session.add(produit)
+        db.session.commit()
+
+        return jsonify({'ok': True, 'produit': produit.to_dict()})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════
 #  ANCIENNES ROUTES (compatibilité)
 # ══════════════════════════════════════════════════════════════
 
