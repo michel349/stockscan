@@ -877,6 +877,9 @@ function afficherHistoFournisseur() {
                 <button class="btn-download btn-csv" onclick="csvFournisseur('${cmd.id}')">
                     📥 CSV
                 </button>
+                <button class="btn-download" style="background:#27ae60;color:white;" onclick="excelFournisseur('${cmd.id}')">
+                    📊 Excel
+                </button>
             </div>
         </div>`;
     }).join('');
@@ -893,6 +896,10 @@ function pdfFournisseur(cmdId) {
 
 function csvFournisseur(cmdId) {
     window.open('/api/commande_fournisseur/csv/' + cmdId, '_blank');
+}
+
+function excelFournisseur(cmdId) {
+    window.open('/api/commande_fournisseur/excel/' + cmdId, '_blank');
 }
 
 function exportCSVGlobal() {

@@ -910,6 +910,136 @@ def api_pdf_commande_fournisseur(cmd_id):
                      download_name=f'{cmd_id}.pdf')
 
 
+@bp.route('/api/commande_fournisseur/excel/<cmd_id>')
+def api_excel_commande_fournisseur(cmd_id):
+    """Génère un fichier Excel au format commande hebdomadaire (2 colonnes produits)."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    from io import BytesIO
+
+    rows = CommandeFournisseur.query.filter_by(cmd_id=cmd_id).all()
+    if not rows:
+        return 'Commande introuvable', 404
+
+    # Récupérer les infos avec catégorie
+    enriched = []
+    for r in rows:
+        produit = Produit.query.get(r.code)
+        enriched.append({
+            'code': r.code,
+            'nom': r.nom,
+            'categorie': produit.categorie if produit else '',
+            'quantite': r.quantite,
+        })
+
+    # Trier par catégorie puis par nom
+    enriched.sort(key=lambda x: (x['categorie'] or '', x['nom'] or ''))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "LISTING"
+
+    # Styles
+    title_font = Font(name='Calibri', bold=True, size=14)
+    header_font = Font(name='Calibri', bold=True, size=10)
+    normal_font = Font(name='Calibri', size=10)
+    code_font = Font(name='Calibri', size=9)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    header_fill = PatternFill("solid", fgColor="D9E1F2")
+    cat_fill = PatternFill("solid", fgColor="E2EFDA")
+
+    # Largeurs colonnes
+    ws.column_dimensions['A'].width = 14
+    ws.column_dimensions['B'].width = 48
+    ws.column_dimensions['C'].width = 14
+    ws.column_dimensions['D'].width = 14
+    ws.column_dimensions['E'].width = 48
+    ws.column_dimensions['F'].width = 14
+
+    row = 1
+
+    # ── Ligne 1 : "COLMAR LE :" + date ──
+    ws.cell(row=row, column=1, value="COLMAR LE :").font = Font(name='Calibri', bold=True, size=11)
+    ws.cell(row=row, column=2, value=rows[0].date).font = normal_font
+    row += 1
+
+    # ── Ligne 2 : "DA :" ──
+    ws.cell(row=row, column=1, value="DA :").font = Font(name='Calibri', bold=True, size=11)
+    row += 1
+
+    # ── Ligne vide ──
+    row += 1
+
+    # ── Titre ──
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+    ws.cell(row=row, column=1, value="COMMANDE HEBDOMADAIRE PRODUITS DA").font = title_font
+    ws.cell(row=row, column=1).alignment = Alignment(horizontal='center')
+    row += 1
+
+    # ── Ligne vide ──
+    row += 1
+
+    # ── En-têtes colonnes ──
+    for col, label in [(1, 'REF'), (2, 'DESIGNATION'), (3, 'QUANTITE'),
+                        (4, 'REF'), (5, 'DESIGNATION'), (6, 'QUANTITE')]:
+        cell = ws.cell(row=row, column=col, value=label)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center')
+    row += 1
+
+    # ── Produits en 2 colonnes ──
+    half = (len(enriched) + 1) // 2
+    col1_items = enriched[:half]
+    col2_items = enriched[half:]
+
+    max_rows = max(len(col1_items), len(col2_items))
+    for i in range(max_rows):
+        # Colonne gauche
+        if i < len(col1_items):
+            p = col1_items[i]
+            ws.cell(row=row, column=1, value=p['code']).font = code_font
+            ws.cell(row=row, column=1).border = thin_border
+            ws.cell(row=row, column=2, value=p['nom']).font = normal_font
+            ws.cell(row=row, column=2).border = thin_border
+            qty_cell = ws.cell(row=row, column=3, value=f"X {p['quantite']}")
+            qty_cell.font = normal_font
+            qty_cell.border = thin_border
+            qty_cell.alignment = Alignment(horizontal='center')
+
+        # Colonne droite
+        if i < len(col2_items):
+            p = col2_items[i]
+            ws.cell(row=row, column=4, value=p['code']).font = code_font
+            ws.cell(row=row, column=4).border = thin_border
+            ws.cell(row=row, column=5, value=p['nom']).font = normal_font
+            ws.cell(row=row, column=5).border = thin_border
+            qty_cell = ws.cell(row=row, column=6, value=f"X {p['quantite']}")
+            qty_cell.font = normal_font
+            qty_cell.border = thin_border
+            qty_cell.alignment = Alignment(horizontal='center')
+
+        row += 1
+
+    # Sauvegarder dans un buffer
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    return send_file(
+        buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        download_name=f'commande_fournisseur_{cmd_id}.xlsx',
+        as_attachment=True
+    )
+
+
 @bp.route('/api/commande_fournisseur/csv/<cmd_id>')
 def api_csv_commande_fournisseur(cmd_id):
     import csv, io
