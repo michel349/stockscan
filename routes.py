@@ -109,6 +109,13 @@ def envoyer_mail_commande(commande, action="nouvelle"):
             corps_txt_lignes.append(f"  - {p.get('nom', '')} ({p.get('code', '')}) x{p.get('quantite', 0)}")
         corps_txt = "\n".join(corps_txt_lignes)
 
+        # Vérification débogage
+        print(f"📧 Envoi mail via Brevo API...")
+        print(f"   Expéditeur: {MAIL_EXPEDITEUR}")
+        print(f"   Destinataire: {MAIL_DESTINATAIRE}")
+        print(f"   Clé API (début): {BREVO_API_KEY[:10]}...")
+        print(f"   Sujet: {sujet}")
+
         # Appel API Brevo
         url = "https://api.brevo.com/v3/smtp/email"
         headers = {
@@ -117,7 +124,7 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         }
 
         payload = {
-            "sender": {"email": MAIL_EXPEDITEUR},
+            "sender": {"email": MAIL_EXPEDITEUR, "name": "Stock Scan"},
             "to": [{"email": MAIL_DESTINATAIRE}],
             "subject": sujet,
             "htmlContent": corps_html,
@@ -128,12 +135,15 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         req = urllib.request.Request(url, data=data, headers=headers, method='POST')
         resp = urllib.request.urlopen(req, timeout=15)
         status = resp.getcode()
+        body = resp.read().decode('utf-8')
 
         if status == 201:
             print(f"✅ Mail envoyé via Brevo pour {commande['id']} ({action})")
         else:
-            print(f"⚠️ Brevo a répondu {status}")
+            print(f"⚠️ Brevo a répondu {status}: {body}")
 
+    except urllib.error.HTTPError as e:
+        print(f"❌ Erreur HTTP {e.code}: {e.read().decode('utf-8')}")
     except Exception as e:
         print(f"❌ Erreur envoi mail Brevo : {e}")
 
