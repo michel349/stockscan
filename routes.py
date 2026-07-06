@@ -1,16 +1,12 @@
 from flask import Blueprint, render_template, request, jsonify, send_file
 from datetime import datetime
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.mime.text import MIMEText
-from email import encoders
+import urllib.request
+import json
 from models import db, Produit, Historique, CommandeDA, CommandeFournisseur
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
-    MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE, MAIL_DESTINATAIRE,
-    MAIL_SERVEUR, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL
+    MAIL_EXPEDITEUR, MAIL_DESTINATAIRE, BREVO_API_KEY
 )
 from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf, generate_commande_fournisseur_pdf
 
@@ -77,8 +73,8 @@ def load_historique():
 
 
 def envoyer_mail_commande(commande, action="nouvelle"):
-    if not MAIL_EXPEDITEUR or not MAIL_DESTINATAIRE:
-        print("⚠️  Mail non configuré, envoi ignoré")
+    if not MAIL_EXPEDITEUR or not MAIL_DESTINATAIRE or not BREVO_API_KEY:
+        print("⚠️  Mail non configuré (BREVO_API_KEY manquante), envoi ignoré")
         return
 
     try:
@@ -89,7 +85,19 @@ def envoyer_mail_commande(commande, action="nouvelle"):
 
         sujet = f"[{action_label}] {commande['id']} — {commande['destination']}"
 
-        corps_lignes = [
+        # Corps HTML simple
+        lignes = [f"<b>Commande :</b> {commande['id']}<br>",
+                  f"<b>Destination :</b> {commande['destination']}<br>",
+                  f"<b>Date :</b> {commande['date']} à {commande['heure']}<br>",
+                  f"<b>Action :</b> {action}<br><br>",
+                  "<b>Produits :</b><br><ul>"]
+        for p in commande['produits']:
+            lignes.append(f"<li>{p.get('nom', '')} ({p.get('code', '')}) x{p.get('quantite', 0)}</li>")
+        lignes.append("</ul>")
+        corps_html = "".join(lignes)
+
+        # Corps texte brut
+        corps_txt_lignes = [
             f"Commande   : {commande['id']}",
             f"Destination: {commande['destination']}",
             f"Date       : {commande['date']} à {commande['heure']}",
@@ -98,50 +106,36 @@ def envoyer_mail_commande(commande, action="nouvelle"):
             "Produits :",
         ]
         for p in commande['produits']:
-            corps_lignes.append(
-                f"  - {p.get('nom', '')} ({p.get('code', '')}) x{p.get('quantite', 0)}"
-            )
-        corps = "\n".join(corps_lignes)
+            corps_txt_lignes.append(f"  - {p.get('nom', '')} ({p.get('code', '')}) x{p.get('quantite', 0)}")
+        corps_txt = "\n".join(corps_txt_lignes)
 
-        pdf_buffer = generate_commande_da_pdf(commande)
+        # Appel API Brevo
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "Content-Type": "application/json",
+            "api-key": BREVO_API_KEY,
+        }
 
-        msg = MIMEMultipart()
-        msg['From']    = MAIL_EXPEDITEUR
-        msg['To']      = MAIL_DESTINATAIRE
-        msg['Subject'] = sujet
-        msg.attach(MIMEText(corps, 'plain', 'utf-8'))
+        payload = {
+            "sender": {"email": MAIL_EXPEDITEUR},
+            "to": [{"email": MAIL_DESTINATAIRE}],
+            "subject": sujet,
+            "htmlContent": corps_html,
+            "textContent": corps_txt,
+        }
 
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(pdf_buffer.read())
-        encoders.encode_base64(part)
-        part.add_header(
-            'Content-Disposition',
-            f'attachment; filename="commande_{commande["id"]}.pdf"'
-        )
-        msg.attach(part)
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+        resp = urllib.request.urlopen(req, timeout=15)
+        status = resp.getcode()
 
-        try:
-            if MAIL_USE_SSL:
-                # Connexion SSL (port 465 typiquement)
-                with smtplib.SMTP_SSL(MAIL_SERVEUR, MAIL_PORT, timeout=10) as smtp:
-                    smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
-                    smtp.send_message(msg)
-            else:
-                # Connexion STARTTLS (port 587 typiquement)
-                with smtplib.SMTP(MAIL_SERVEUR, MAIL_PORT, timeout=10) as smtp:
-                    smtp.ehlo()
-                    if MAIL_USE_TLS:
-                        smtp.starttls()
-                        smtp.ehlo()
-                    smtp.login(MAIL_EXPEDITEUR, MAIL_MOT_DE_PASSE)
-                    smtp.send_message(msg)
-        except Exception as mail_err:
-            print(f"⚠️ Echec envoi mail (continué normalement): {mail_err}")
-
-        print(f"✅ Mail envoyé pour {commande['id']} ({action})")
+        if status == 201:
+            print(f"✅ Mail envoyé via Brevo pour {commande['id']} ({action})")
+        else:
+            print(f"⚠️ Brevo a répondu {status}")
 
     except Exception as e:
-        print(f"❌ Erreur envoi mail : {e}")
+        print(f"❌ Erreur envoi mail Brevo : {e}")
 
 
 # ══════════════════════════════════════════════════════════════
