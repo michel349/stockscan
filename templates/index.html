@@ -557,96 +557,29 @@
 
 <!-- ── TABS ── -->
 <div class="tabs">
-    <div class="tab active" id="tab-btn-scan"
-         onclick="switchTab('scan', this)">🔍 Scanner</div>
+    <div class="tab active" id="tab-btn-cmdda"
+         onclick="switchTab('cmdda', this)">📋 Commandes DA</div>
     <div class="tab" id="tab-btn-stock"
          onclick="switchTab('stock', this)">📊 Stock</div>
     <div class="tab" id="tab-btn-histo"
          onclick="switchTab('histo', this)">📋 Historique</div>
-    <div class="tab" id="tab-btn-cmdda"
-     onclick="switchTab('cmdda', this)">📋 Cmd DA</div>
     <div class="tab" onclick="window.location.href='/commande_fournisseur'"
      style="background:#e67e22;color:white;">📦 Cmd Fournisseur</div>
 </div>
 
 <div class="content">
 
-    <!-- ══ SCANNER ══ -->
-    <div id="tab-scan" class="tab-content active">
-
-        <div id="step1">
-    <div class="scan-box">
-        <h3 style="color:#2c3e50;margin-bottom:16px;">
-            📍 Choisir la destination
-        </h3>
-
-        <!-- Boutons manuels (PC) -->
-        <div id="destGrid" style="display:flex;gap:12px;flex-wrap:wrap;
-                                   margin-bottom:20px;"></div>
-
-        <!-- Séparateur -->
-        <div style="text-align:center;color:#aaa;margin:8px 0;font-size:0.85rem;">
-            — ou scanner le code destination —
+    <!-- ══ COMMANDES DA ══ -->
+    <div id="tab-cmdda" class="tab-content active">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2 style="color:#2c3e50;">📋 Commandes DA en attente</h2>
+            <button onclick="chargerCommandesDA()"
+                    style="padding:8px 16px;background:#3498db;color:white;
+                           border:none;border-radius:8px;cursor:pointer;">🔄 Rafraîchir</button>
         </div>
 
-        <!-- Scan douchette destination -->
-        <div class="scan-input-row">
-            <input id="scanDestInput" type="text"
-                   placeholder="DEST:DA1 ou DEST:DA2…"
-                   onkeydown="if(event.key==='Enter') scannerDestination()">
-            <button onclick="scannerDestination()"
-                    style="padding:10px 20px;background:#2c3e50;
-                           color:white;border:none;border-radius:8px;
-                           cursor:pointer;font-size:1rem;">↵</button>
-        </div>
-        <div id="feedbackDest" class="feedback" style="margin-top:8px;"></div>
-    </div>
-</div>
-
-
-        <div id="step2" style="display:none;">
-            <div class="scan-box">
-                <div style="display:flex;justify-content:space-between;
-                            align-items:center;margin-bottom:12px;">
-                    <h3 style="color:#2c3e50;">Scanner un produit</h3>
-                    <button onclick="changerDest()"
-                            style="background:none;border:1px solid #dee2e6;
-                                   padding:6px 12px;border-radius:6px;
-                                   cursor:pointer;color:#7f8c8d;font-size:0.85rem;">
-                        ⬅ Changer
-                    </button>
-                </div>
-                <div class="scan-input-row">
-                    <input id="scanInput" type="text"
-                           placeholder="Code-barres ou code produit…"
-                           onkeydown="if(event.key==='Enter') scanner()">
-                    <button onclick="scanner()"
-                            style="padding:10px 20px;background:#3498db;
-                                   color:white;border:none;border-radius:8px;
-                                   cursor:pointer;font-size:1rem;">↵</button>
-                </div>
-                <div id="feedback" class="feedback"></div>
-            </div>
-
-            <div class="panier-section" id="panierSection" style="display:none;">
-                <div class="panier-header">
-                    <h3 style="color:#2c3e50;">🛒 Panier</h3>
-                    <span class="panier-count" id="panierCount">0 article(s)</span>
-                </div>
-                <table class="stock-table">
-                    <thead>
-                        <tr>
-                            <th>Code</th>
-                            <th>Produit</th>
-                            <th style="text-align:center;">Quantité</th>
-                        </tr>
-                    </thead>
-                    <tbody id="panierBody"></tbody>
-                </table>
-                <button class="btn-valider" onclick="validerCommande()">
-                    ✅ Valider la commande
-                </button>
-            </div>
+        <div id="cmdda-list">
+            <p style="color:#7f8c8d;text-align:center;padding:40px;">Chargement…</p>
         </div>
     </div>
 
@@ -715,20 +648,6 @@
             <p style="color:#7f8c8d;text-align:center;padding:40px;">Chargement…</p>
         </div>
     </div>
-
-<!-- ══ COMMANDES DA ══ -->
-<div id="tab-cmdda" class="tab-content">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h2 style="color:#2c3e50;">📋 Commandes DA en attente</h2>
-        <button onclick="chargerCommandesDA()"
-                style="padding:8px 16px;background:#3498db;color:white;
-                       border:none;border-radius:8px;cursor:pointer;">🔄 Rafraîchir</button>
-    </div>
-
-    <div id="cmdda-list">
-        <p style="color:#7f8c8d;text-align:center;padding:40px;">Chargement…</p>
-    </div>
-</div>
 
 <!-- ══ PRÉPARATION COMMANDE DA ══ -->
 <div id="tab-prepda" class="tab-content">
@@ -833,8 +752,6 @@ const CAT_COLORS = [
     '#8e44ad','#16a085','#d35400','#c0392b'
 ];
 
-let destination    = null;
-let panier         = {};
 let historiqueData = [];
 let arrivageCode   = null;
 let stockData      = [];
@@ -850,16 +767,6 @@ function formatDateFr(dateStr) {
 //  INIT
 // ════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-    const grid = document.getElementById('destGrid');
-    DESTINATIONS.forEach(dest => {
-        const btn = document.createElement('button');
-        btn.className        = 'dest-btn';
-        btn.style.background = DEST_COLORS[dest] || '#2980b9';
-        btn.textContent      = dest;
-        btn.onclick          = () => choisirDest(dest);
-        grid.appendChild(btn);
-    });
-
     const sel = document.getElementById('filterDest');
     DESTINATIONS.forEach(dest => {
         const opt = document.createElement('option');
@@ -871,10 +778,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('dateJour').value =
         new Date().toISOString().split('T')[0];
 
-    setTimeout(() => {
-        const s = document.getElementById('scanDestInput');
-        if (s) s.focus();
-    }, 100);
+    // Charger les commandes DA au démarrage
+    chargerCommandesDA();
 });
 
 // ════════════════════════════════════════════════
@@ -894,236 +799,6 @@ function switchTab(name, btn) {
     if (name === 'prepda') {
         document.getElementById('prepScanInput')?.focus();
     }
-}
-
-// ════════════════════════════════════════════════
-//  DESTINATION
-// ════════════════════════════════════════════════
-function choisirDest(dest) {
-    destination = dest;
-    const hd = document.getElementById('headerDest');
-    hd.textContent      = '▶ ' + dest;
-    hd.className        = 'header-dest visible';
-    hd.style.background = DEST_COLORS[dest] || '#2980b9';
-    document.getElementById('step1').style.display = 'none';
-    document.getElementById('step2').style.display = 'block';
-    focusScan();
-}
-
-function changerDest() {
-    destination = null;
-    panier      = {};
-
-    const hd = document.getElementById('headerDest');
-    hd.className  = 'header-dest';
-    hd.textContent = '';
-
-    document.getElementById('step2').style.display  = 'none';
-    document.getElementById('step1').style.display  = 'block';
-    document.getElementById('feedback').className   = 'feedback';
-    document.getElementById('feedback').textContent = '';
-    majPanier();
-
-    const scanDest = document.getElementById('scanDestInput');
-    if (scanDest) { scanDest.value = ''; scanDest.focus(); }
-}
-
-function scannerDestination() {
-    const input = document.getElementById('scanDestInput');
-    const code  = input.value.trim().toUpperCase();
-    input.value = '';
-
-    if (code.startsWith('DEST:')) {
-        const dest = code.replace('DEST:', '');
-        if (DESTINATIONS.includes(dest)) {
-            choisirDest(dest);
-        } else {
-            const fb = document.getElementById('feedbackDest');
-            fb.className   = 'feedback error';
-            fb.textContent = `❌ Destination inconnue : ${dest}`;
-        }
-    } else if (DESTINATIONS.includes(code)) {
-        choisirDest(code);
-    } else {
-        const fb = document.getElementById('feedbackDest');
-        fb.className   = 'feedback error';
-        fb.textContent = `❌ Format invalide. Exemple : DEST:DA1`;
-    }
-}
-
-// ════════════════════════════════════════════════
-//  FOCUS
-// ════════════════════════════════════════════════
-function focusScan() {
-    const input = document.getElementById('scanInput');
-    if (input) { input.value = ''; input.focus(); }
-}
-
-// ════════════════════════════════════════════════
-//  SCANNER — FONCTION PRINCIPALE
-// ════════════════════════════════════════════════
-function scanner() {
-    const input = document.getElementById('scanInput');
-    const code  = input.value.trim().toUpperCase();
-    input.value = '';
-    if (!code) return;
-
-    // ── Destination ──────────────────────────────
-    if (code.startsWith('DEST:')) {
-        const dest = code.replace('DEST:', '');
-        if (DESTINATIONS.includes(dest)) {
-            choisirDest(dest);
-        } else {
-            afficherFeedback('error', `❌ Destination inconnue : ${dest}`);
-            focusScan();
-        }
-        return;
-    }
-
-    // ── Actions spéciales ─────────────────────────
-    if (code === 'ACTION:VALIDER' || code === 'FIN') {
-        if (!destination) {
-            afficherFeedback('error', '❌ Aucune destination sélectionnée');
-            focusScan();
-            return;
-        }
-        if (Object.keys(panier).length === 0) {
-            afficherFeedback('error', '❌ Panier vide — rien à valider');
-            focusScan();
-            return;
-        }
-        validerCommande();
-        return;
-    }
-
-    if (code === 'ACTION:VIDER') {
-        panier = {};
-        majPanier();
-        afficherFeedback('ok', '🗑️ Panier vidé');
-        focusScan();
-        return;
-    }
-
-    if (code === 'ACTION:RESET_DEST' || code === 'ANNULER') {
-        changerDest();
-        return;
-    }
-
-    // ── Produit normal ────────────────────────────
-    if (!destination) {
-        afficherFeedback('error', '❌ Scannez d\'abord une destination');
-        focusScan();
-        return;
-    }
-
-    fetch('/scanner', {
-        method:  'POST',
-        headers: {'Content-Type': 'application/json'},
-        body:    JSON.stringify({ destination, code })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (!data.ok) {
-            afficherFeedback('error', `❌ ${data.error}`);
-            focusScan();
-            return;
-        }
-
-        if (panier[data.code]) {
-            panier[data.code].quantite += 1;
-        } else {
-            panier[data.code] = { nom: data.nom, quantite: 1 };
-        }
-
-        const stockMsg = data.warning
-            ? ` ⚠️ Stock bas (${data.stock})`
-            : ` — Stock : ${data.stock}`;
-
-        afficherFeedback(
-            data.warning ? 'warn' : 'ok',
-            `✅ ${data.nom}${stockMsg}`
-        );
-        majPanier();
-        focusScan();
-    });
-}
-
-// ════════════════════════════════════════════════
-//  PANIER
-// ════════════════════════════════════════════════
-function majPanier() {
-    const keys    = Object.keys(panier);
-    const section = document.getElementById('panierSection');
-    const tbody   = document.getElementById('panierBody');
-    const count   = document.getElementById('panierCount');
-
-    if (keys.length === 0) { section.style.display = 'none'; return; }
-
-    section.style.display = 'block';
-    tbody.innerHTML = keys.map(code => `
-        <tr>
-            <td><code>${code}</code></td>
-            <td>${panier[code].nom}</td>
-            <td style="text-align:center;">
-                <span style="background:${DEST_COLORS[destination]||'#2980b9'};
-                             color:white;padding:2px 10px;
-                             border-radius:12px;font-weight:bold;">
-                    ${panier[code].quantite}
-                </span>
-            </td>
-        </tr>
-    `).join('');
-
-    const total = keys.reduce((s, k) => s + panier[k].quantite, 0);
-    count.textContent = total + ' article(s)';
-}
-
-// ════════════════════════════════════════════════
-//  VALIDER COMMANDE
-// ════════════════════════════════════════════════
-function validerCommande() {
-    if (Object.keys(panier).length === 0) return;
-
-    afficherFeedback('ok', '⏳ Validation en cours…');
-
-    // Transformer le panier en liste de produits attendue par l'API
-    const produits = Object.keys(panier).map(code => ({
-        code: code,
-        nom: panier[code].nom,
-        quantite: panier[code].quantite
-    }));
-
-    fetch('/valider_commande', {
-        method:  'POST',
-        headers: {'Content-Type': 'application/json'},
-        body:    JSON.stringify({ destination, produits })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.ok) {
-if (currentCmdDA) {
-            fetch('/valider_commande_da', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ cmd_id: currentCmdDA })
-            }).then(() => { currentCmdDA = null; });
-        }
-        afficherFeedback('ok', `✅ Commande ${data.cmd_id} validée ! Retour…`);
-            setTimeout(() => changerDest(), 2000);
-        } else {
-            afficherFeedback('error', '❌ Erreur : ' + data.error);
-        }
-    });
-}
-
-// ════════════════════════════════════════════════
-//  FEEDBACK
-// ════════════════════════════════════════════════
-function afficherFeedback(type, message) {
-    const fb = document.getElementById('feedback');
-    const classes = { ok: 'feedback ok', warn: 'feedback warn', error: 'feedback error' };
-    fb.className   = classes[type] || 'feedback';
-    fb.textContent = message;
 }
 
 // ════════════════════════════════════════════════
