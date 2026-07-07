@@ -77,47 +77,53 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         print("⚠️  Mail non configuré (BREVO_API_KEY manquante), envoi ignoré")
         return
 
-    try:
-        action_label = { 'nouvelle': 'NOUVELLE COMMANDE', 'modifiée': 'COMMANDE MODIFIÉE', }.get(action, action.upper())
-        sujet = f"[{action_label}] {commande['id']} — {commande['destination']}" 
-        
-        # Corps HTML simple
-        
-                    corps_html = f"""
-            <p>Bonjour,</p>
-            
-            <p>La DA a passé une nouvelle commande.</p>
-            
-            <p>
-            <b>Numéro de commande :</b> {commande['id']}<br>
-            <b>Destination :</b> {commande['destination']}<br>
-            <b>Date :</b> {commande['date']} à {commande['heure']}<br>
-            <b>Action :</b> {action}
-            </p>
-            
-            <p>Vous pouvez consulter les détails de la commande dans l'application.</p>
-            
-            <p>Cordialement,</p>
-            """
+   try:
+    action_label = {
+        'nouvelle': 'NOUVELLE COMMANDE',
+        'modifiée': 'COMMANDE MODIFIÉE',
+    }.get(action, action.upper())
 
-        # Corps texte brut
-        
-        corps_txt_lignes = [
-            "Bonjour,",
-            "",
-            f"Destination: {commande['destination']}",
-            f"La DA a passé une nouvelle commande.",
-            "",
-            f"Numéro de commande : {commande['id']}",
-            f"Destination        : {commande['destination']}",
-            f"Date               : {commande['date']} à {commande['heure']}",
-            f"Action             : {action}",
-            "",
-            "Vous pouvez consulter les détails de la commande dans l'application.",
-            "",
-            "Cordialement,",
-        ]
-        corps_txt = "\n".join(corps_txt_lignes)
+    sujet = f"[{action_label}] {commande['id']} — {commande['destination']}"
+
+    # Corps HTML simple
+    corps_html = f"""
+        <p>Bonjour,</p>
+
+        <p>La DA a passé une nouvelle commande.</p>
+
+        <p>
+        <b>Numéro de commande :</b> {commande['id']}<br>
+        <b>Destination :</b> {commande['destination']}<br>
+        <b>Date :</b> {commande['date']} à {commande['heure']}<br>
+        <b>Action :</b> {action}
+        </p>
+
+        <p>Vous pouvez consulter les détails de la commande dans l'application.</p>
+
+        <p>Cordialement,</p>
+    """
+
+    # Corps texte brut
+    corps_txt_lignes = [
+        "Bonjour,",
+        "",
+        f"Destination: {commande['destination']}",
+        "La DA a passé une nouvelle commande.",
+        "",
+        f"Numéro de commande : {commande['id']}",
+        f"Destination        : {commande['destination']}",
+        f"Date               : {commande['date']} à {commande['heure']}",
+        f"Action             : {action}",
+        "",
+        "Vous pouvez consulter les détails de la commande dans l'application.",
+        "",
+        "Cordialement,",
+    ]
+    corps_txt = "\n".join(corps_txt_lignes)
+
+except KeyError as e:
+    print(f"Clé manquante dans le dictionnaire commande : {e}")
+    # gérer l'erreur ici
 
         
 
