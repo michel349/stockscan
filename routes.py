@@ -73,7 +73,7 @@ def load_historique():
 
 
 def envoyer_mail_commande(commande, action="nouvelle"):
-    if not MAIL_EXPEDITEUR or not MAIL_DESTINATAIRE or not BREVO_API_KEY:
+    if not MAIL_EXPEDITEUR or not MAIL_DESTINATAIRE or not MAIL_DESTINATAIRE1 or not BREVO_API_KEY:
         print("⚠️  Mail non configuré (BREVO_API_KEY manquante), envoi ignoré")
         return
 
@@ -113,6 +113,7 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         print(f"📧 Envoi mail via Brevo API...")
         print(f"   Expéditeur: {MAIL_EXPEDITEUR}")
         print(f"   Destinataire: {MAIL_DESTINATAIRE}")
+        print(f"   Destinataire1: {MAIL_DESTINATAIRE1}")
         print(f"   Clé API (début): {BREVO_API_KEY[:10]}...")
         print(f"   Sujet: {sujet}")
 
@@ -125,7 +126,7 @@ def envoyer_mail_commande(commande, action="nouvelle"):
 
         payload = {
             "sender": {"email": MAIL_EXPEDITEUR, "name": "Stock Scan"},
-            "to": [{"email": MAIL_DESTINATAIRE}],
+            "to": [{"email": MAIL_DESTINATAIRE},{"email": MAIL_DESTINATAIRE1}],
             "subject": sujet,
             "htmlContent": corps_html,
             "textContent": corps_txt,
