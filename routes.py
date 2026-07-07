@@ -97,17 +97,25 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         corps_html = "".join(lignes)
 
         # Corps texte brut
+        
         corps_txt_lignes = [
-            f"Commande   : {commande['id']}",
-            f"Destination: {commande['destination']}",
-            f"Date       : {commande['date']} à {commande['heure']}",
-            f"Action     : {action}",
+            "Bonjour,",
             "",
-            "Produits :",
+            f"Destination: {commande['destination']}",
+            f"La DA a passé une nouvelle commande.",
+            "",
+            f"Numéro de commande : {commande['id']}",
+            f"Destination        : {commande['destination']}",
+            f"Date               : {commande['date']} à {commande['heure']}",
+            f"Action             : {action}",
+            "",
+            "Vous pouvez consulter les détails de la commande dans l'application.",
+            "",
+            "Cordialement,",
         ]
-        for p in commande['produits']:
-            corps_txt_lignes.append(f"  - {p.get('nom', '')} ({p.get('code', '')}) x{p.get('quantite', 0)}")
         corps_txt = "\n".join(corps_txt_lignes)
+
+        
 
         # Vérification débogage
         print(f"📧 Envoi mail via Brevo API...")
