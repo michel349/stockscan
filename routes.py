@@ -77,55 +77,49 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         print("⚠️  Mail non configuré (BREVO_API_KEY manquante), envoi ignoré")
         return
 
-   try:
-    action_label = {
-        'nouvelle': 'NOUVELLE COMMANDE',
-        'modifiée': 'COMMANDE MODIFIÉE',
-    }.get(action, action.upper())
+    try:
+        action_label = {
+            'nouvelle': 'NOUVELLE COMMANDE',
+            'modifiée': 'COMMANDE MODIFIÉE',
+        }.get(action, action.upper())
 
-    sujet = f"[{action_label}] {commande['id']} — {commande['destination']}"
+        sujet = f"[{action_label}] {commande['id']} — {commande['destination']}"
 
-    # Corps HTML simple
-    corps_html = f"""
-        <p>Bonjour,</p>
+        # Corps HTML simple
+        corps_html = f"""
+            <p>Bonjour,</p>
 
-        <p>La DA a passé une nouvelle commande.</p>
+            <p>La DA a passé une nouvelle commande.</p>
 
-        <p>
-        <b>Numéro de commande :</b> {commande['id']}<br>
-        <b>Destination :</b> {commande['destination']}<br>
-        <b>Date :</b> {commande['date']} à {commande['heure']}<br>
-        <b>Action :</b> {action}
-        </p>
+            <p>
+            <b>Numéro de commande :</b> {commande['id']}<br>
+            <b>Destination :</b> {commande['destination']}<br>
+            <b>Date :</b> {commande['date']} à {commande['heure']}<br>
+            <b>Action :</b> {action}
+            </p>
 
-        <p>Vous pouvez consulter les détails de la commande dans l'application.</p>
+            <p>Vous pouvez consulter les détails de la commande dans l'application.</p>
 
-        <p>Cordialement,</p>
-    """
+            <p>Cordialement,</p>
+        """
 
-    # Corps texte brut
-    corps_txt_lignes = [
-        "Bonjour,",
-        "",
-        f"Destination: {commande['destination']}",
-        "La DA a passé une nouvelle commande.",
-        "",
-        f"Numéro de commande : {commande['id']}",
-        f"Destination        : {commande['destination']}",
-        f"Date               : {commande['date']} à {commande['heure']}",
-        f"Action             : {action}",
-        "",
-        "Vous pouvez consulter les détails de la commande dans l'application.",
-        "",
-        "Cordialement,",
-    ]
-    corps_txt = "\n".join(corps_txt_lignes)
-    
-   except KeyError as e:
-    print(f"Clé manquante dans le dictionnaire commande : {e}")
-    # gérer l'erreur ici
-
-        
+        # Corps texte brut
+        corps_txt_lignes = [
+            "Bonjour,",
+            "",
+            f"Destination: {commande['destination']}",
+            "La DA a passé une nouvelle commande.",
+            "",
+            f"Numéro de commande : {commande['id']}",
+            f"Destination        : {commande['destination']}",
+            f"Date               : {commande['date']} à {commande['heure']}",
+            f"Action             : {action}",
+            "",
+            "Vous pouvez consulter les détails de la commande dans l'application.",
+            "",
+            "Cordialement,",
+        ]
+        corps_txt = "\n".join(corps_txt_lignes)
 
         # Vérification débogage
         print(f"📧 Envoi mail via Brevo API...")
@@ -144,7 +138,7 @@ def envoyer_mail_commande(commande, action="nouvelle"):
 
         payload = {
             "sender": {"email": MAIL_EXPEDITEUR, "name": "Stock Scan"},
-            "to": [{"email": MAIL_DESTINATAIRE},{"email": MAIL_DESTINATAIRE1}],
+            "to": [{"email": MAIL_DESTINATAIRE}, {"email": MAIL_DESTINATAIRE1}],
             "subject": sujet,
             "htmlContent": corps_html,
             "textContent": corps_txt,
@@ -161,11 +155,12 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         else:
             print(f"⚠️ Brevo a répondu {status}: {body}")
 
+    except KeyError as e:
+        print(f"❌ Clé manquante dans le dictionnaire commande : {e}")
     except urllib.error.HTTPError as e:
         print(f"❌ Erreur HTTP {e.code}: {e.read().decode('utf-8')}")
     except Exception as e:
         print(f"❌ Erreur envoi mail Brevo : {e}")
-
 
 # ══════════════════════════════════════════════════════════════
 #  PAGES
