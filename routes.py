@@ -120,8 +120,8 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         "Cordialement,",
     ]
     corps_txt = "\n".join(corps_txt_lignes)
-
-except KeyError as e:
+    
+   except KeyError as e:
     print(f"Clé manquante dans le dictionnaire commande : {e}")
     # gérer l'erreur ici
 
