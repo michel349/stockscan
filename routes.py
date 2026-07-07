@@ -6,7 +6,7 @@ from models import db, Produit, Historique, CommandeDA, CommandeFournisseur
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
-    MAIL_EXPEDITEUR, MAIL_DESTINATAIRE, BREVO_API_KEY
+    MAIL_EXPEDITEUR, MAIL_DESTINATAIRE, MAIL_DESTINATAIRE1, BREVO_API_KEY
 )
 from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf, generate_commande_fournisseur_pdf
 
