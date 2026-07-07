@@ -78,19 +78,19 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         return
 
     try:
-        action_label = {
-            'nouvelle': 'NOUVELLE COMMANDE',
-            'modifiée': 'COMMANDE MODIFIÉE',
-        }.get(action, action.upper())
-
-        sujet = f"[{action_label}] {commande['id']} — {commande['destination']}"
-
+        action_label = { 'nouvelle': 'NOUVELLE COMMANDE', 'modifiée': 'COMMANDE MODIFIÉE', }.get(action, action.upper())
+        sujet = f"[{action_label}] {commande['id']} — {commande['destination']}" 
+        
         # Corps HTML simple
-        lignes = [f"<b>Commande :</b> {commande['id']}<br>",
-                  f"<b>Destination :</b> {commande['destination']}<br>",
-                  f"<b>Date :</b> {commande['date']} à {commande['heure']}<br>"
-                 ]
-                  corps_html = "".join(lignes)
+        
+        lignes = [f"<b>Commande :</b> {commande['id']}<br>", 
+                  f"<b>Destination :</b> {commande['destination']}<br>", 
+                  f"<b>Date :</b> {commande['date']} à {commande['heure']}<br>", 
+                  f"<b>Action :</b> {action}<br><br>",
+                  "<b>Produits :</b><br><ul>"] for p in commande['produits']: lignes.append(f"<li>{p.get('nom', '')}
+                  ({p.get('code', '')}) x{p.get('quantite', 0)}</li>") lignes.append("</ul>") 
+        
+        corps_html = "".join(lignes)
 
         # Corps texte brut
         
