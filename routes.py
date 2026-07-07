@@ -86,22 +86,22 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         sujet = f"[{action_label}] {commande['id']} — {commande['destination']}"
 
         # Corps HTML simple
-        lignes = [
-            "Bonjour,",
-            "",
-            f"Destination: {commande['destination']}",
-            f"La DA a passé une nouvelle commande.",
-            "",
-            f"Numéro de commande : {commande['id']}",
-            f"Destination        : {commande['destination']}",
-            f"Date               : {commande['date']} à {commande['heure']}",
-            f"Action             : {action}",
-            "",
-            "Vous pouvez consulter les détails de la commande dans l'application.",
-            "",
-            "Cordialement,",
-        ]
-        corps_html = "".join(lignes)
+            corps_html = f"""
+            <p>Bonjour,</p>
+            
+            <p>{message_action}</p>
+            
+            <p>
+            <b>Numéro de commande :</b> {commande['id']}<br>
+            <b>Destination :</b> {commande['destination']}<br>
+            <b>Date :</b> {commande['date']} à {commande['heure']}<br>
+            <b>Action :</b> {action}
+            </p>
+            
+            <p>Vous pouvez consulter les détails de la commande dans l'application.</p>
+            
+            <p>Cordialement,</p>
+            """
 
         # Corps texte brut
         
