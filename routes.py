@@ -88,7 +88,8 @@ def envoyer_mail_commande(commande, action="nouvelle"):
         # Corps HTML simple
         lignes = [f"<b>Commande :</b> {commande['id']}<br>",
                   f"<b>Destination :</b> {commande['destination']}<br>",
-                  f"<b>Date :</b> {commande['date']} à {commande['heure']}<br>",
+                  f"<b>Date :</b> {commande['date']} à {commande['heure']}<br>"
+                 ]
                   corps_html = "".join(lignes)
 
         # Corps texte brut
