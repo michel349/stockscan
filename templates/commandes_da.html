@@ -540,14 +540,12 @@
 
         let url, body;
 
-        const date_retrait = document.getElementById('date-retrait').value ? document.getElementById('date-retrait').value.substring(0,10) : null;
-
         if (editingCmdId) {
             url = '/api/commandes_da/modifier';
-            body = { cmd_id: editingCmdId, produits, date_retrait };
+            body = { cmd_id: editingCmdId, produits };
         } else {
             url = '/api/commandes_da/nouvelle';
-            body = { destination: currentDA, produits, date_retrait };
+            body = { destination: currentDA, produits };
         }
 
         const res = await fetch(url, {
