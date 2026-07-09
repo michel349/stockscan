@@ -409,6 +409,10 @@
             <div class="suggestions-header">
                 <span>💡 Suggestions de réapprovisionnement (stock < stock mini)</span>
                 <span class="badge" id="suggCount">0</span>
+                <button onclick="ajouterToutAuPanier()" id="btnAjouterTout"
+                        style="display:none;padding:6px 16px;background:#27ae60;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:bold;">
+                    📋 Commander tout
+                </button>
             </div>
             <div id="suggestionsList">
                 <p class="empty-msg">Chargement…</p>
@@ -613,6 +617,9 @@ function afficherSuggestions(suggestions) {
 
     const groupes = grouperParCategorie(suggestions, s => s.categorie || getCategorieProduit(s.code));
 
+    // Afficher le bouton "Commander tout"
+    document.getElementById('btnAjouterTout').style.display = 'inline-block';
+
     container.innerHTML = groupes.map(g => {
         const rows = g.items.map(s => {
             const qteSugg = Math.max(s.stock_maxi - s.stock, 1);
@@ -645,6 +652,27 @@ function afficherSuggestions(suggestions) {
         return `<div style="background:#fef9e7;font-weight:bold;color:#7d6608;padding:8px 12px;border-bottom:2px solid #f9e79f;font-size:0.85rem;">📁 ${g.categorie}</div>
                 ${rows}`;
     }).join('');
+}
+
+function ajouterToutAuPanier() {
+    if (!confirm('Ajouter tous les produits suggérés au panier ?')) return;
+    fetch('/api/suggestions_reappro')
+    .then(r => r.json())
+    .then(data => {
+        if (!data.ok || data.suggestions.length === 0) return;
+        data.suggestions.forEach(s => {
+            const qteSugg = Math.max(s.stock_maxi - s.stock, 1);
+            panierFournisseur[s.code] = {
+                nom: s.nom,
+                quantite: qteSugg,
+                categorie: s.categorie || ''
+            };
+        });
+        majPanierFournisseur();
+        chargerSuggestions();
+        chargerCatalogue();
+        afficherFeedback('ok', `✅ ${data.suggestions.length} produit(s) ajoutés au panier`);
+    });
 }
 
 function ajouterDepuisSuggestion(code, qteStr) {
