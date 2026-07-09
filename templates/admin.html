@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Stock Scan</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { font-size: 1.3rem; }
+        header a {
+            color: white;
+            text-decoration: none;
+            background: #e74c3c;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        header .btn-retour {
+            background: #7f8c8d;
+            margin-right: 8px;
+        }
+
+        /* Login */
+        .login-box {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .login-box h2 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+            text-align: center;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 16px;
+        }
+        .login-box input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .login-box button:hover { background: #2980b9; }
+        .login-box .error {
+            color: #e74c3c;
+            text-align: center;
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: none;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .dashboard.visible { display: block; }
+
+        /* Stats cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            border-top: 4px solid #3498db;
+        }
+        .stat-card .num { font-size: 1.8rem; font-weight: bold; color: #2c3e50; }
+        .stat-card .label { font-size: 0.78rem; color: #7f8c8d; margin-top: 4px; }
+        .stat-card.rupture { border-top-color: #e74c3c; }
+        .stat-card.da { border-top-color: #9b59b6; }
+        .stat-card.four { border-top-color: #e67e22; }
+        .stat-card.logs { border-top-color: #27ae60; }
+
+        /* Tabs admin */
+        .admin-tabs {
+            display: flex;
+            gap: 0;
+            background: white;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        }
+        .admin-tab {
+            flex: 1;
+            padding: 14px 20px;
+            text-align: center;
+            font-weight: bold;
+            color: #7f8c8d;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .admin-tab:hover { color: #2c3e50; background: #f8f9fa; }
+        .admin-tab.active { color: #2980b9; border-bottom-color: #2980b9; }
+
+        .admin-content {
+            background: white;
+            border-radius: 0 0 10px 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            margin-bottom: 20px;
+        }
+        .admin-panel { display: none; }
+        .admin-panel.active { display: block; }
+
+        /* Tableaux */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            color: #2c3e50;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        tr:hover td { background: #f8f9fa; }
+        .table-wrap {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.75rem;
+        }
+        .badge-ok { background: #d4edda; color: #155724; }
+        .badge-empty { background: #f8d7da; color: #721c24; }
+        .badge-warn { background: #fff3cd; color: #856404; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+
+        .log-error { border-left: 4px solid #e74c3c; }
+        .log-commande { border-left: 4px solid #3498db; }
+        .log-info { border-left: 4px solid #27ae60; }
+
+        .btn-small {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .btn-edit { background: #f39c12; color: white; }
+        .btn-delete { background: #e74c3c; color: white; }
+        .btn-edit:hover { background: #d68910; }
+        .btn-delete:hover { background: #c0392b; }
+
+        .edit-inline {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .edit-inline input {
+            padding: 4px 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            width: 70px;
+        }
+        .edit-inline input:focus { outline: none; border-color: #3498db; }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .toolbar input {
+            padding: 8px 14px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            flex: 1;
+            min-width: 200px;
+        }
+        .toolbar input:focus { outline: none; border-color: #3498db; }
+        .toolbar select {
+            padding: 8px 14px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .btn-danger {
+            padding: 8px 16px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-danger:hover { background: #c0392b; }
+
+        .log-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 4px;
+        }
+        .log-item .log-type {
+            font-weight: bold;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+        .log-item .log-time { color: #95a5a6; font-size: 0.8rem; }
+        .log-item .log-msg { color: #2c3e50; margin-top: 2px; }
+        .log-item .log-details { color: #7f8c8d; font-size: 0.8rem; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🔧 Administration</h1>
+    <div>
+        <a class="btn-retour" href="/">← Retour app</a>
+        <a href="/admin/logout">🚪 Déconnexion</a>
+    </div>
+</header>
+
+<!-- Page de connexion -->
+<div class="login-box" id="loginBox">
+    <h2>🔐 Connexion Admin</h2>
+    <form method="POST" action="/admin">
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        <input type="password" name="password" placeholder="Mot de passe admin" autofocus>
+        <button type="submit">Se connecter</button>
+    </form>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard {% if logged_in %}visible{% endif %}" id="dashboard">
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="num">-</div><div class="label">Produits</div></div>
+        <div class="stat-card rupture"><div class="num">-</div><div class="label">En rupture</div></div>
+        <div class="stat-card da"><div class="num">-</div><div class="label">Commandes DA</div></div>
+        <div class="stat-card four"><div class="num">-</div><div class="label">Cmd Fournisseur</div></div>
+        <div class="stat-card"><div class="num">-</div><div class="label">Historique</div></div>
+        <div class="stat-card logs"><div class="num">-</div><div class="label">Logs</div></div>
+    </div>
+
+    <div class="admin-tabs">
+        <div class="admin-tab active" onclick="switchAdminTab('base', this)">🗄️ Base de données</div>
+        <div class="admin-tab" onclick="switchAdminTab('logs', this)">📋 Logs</div>
+    </div>
+
+    <!-- Panel Base de données -->
+    <div class="admin-content">
+        <div class="admin-panel active" id="panel-base">
+            <div class="toolbar">
+                <input type="text" id="searchAdmin" placeholder="🔍 Rechercher un produit..." oninput="filtrerProduits()">
+                <select id="filterCat" onchange="filtrerProduits()">
+                    <option value="">Toutes catégories</option>
+                </select>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Nom</th>
+                            <th>Catégorie</th>
+                            <th style="text-align:center;">Stock</th>
+                            <th style="text-align:center;">Min</th>
+                            <th style="text-align:center;">Max</th>
+                            <th style="text-align:center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminProduitsBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Panel Logs -->
+        <div class="admin-panel" id="panel-logs">
+            <div class="toolbar">
+                <span style="color:#7f8c8d;font-size:0.9rem;">Derniers événements</span>
+                <button class="btn-danger" onclick="viderLogs()">🗑️ Vider les logs</button>
+            </div>
+            <div id="logsList"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const loggedIn = {{ 'true' if logged_in else 'false' }};
+
+if (loggedIn) {
+    chargerStats();
+    chargerProduits();
+    chargerLogs();
+    chargerCategories();
+}
+
+function switchAdminTab(name, btn) {
+    document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+}
+
+// ═══ STATS ═══
+async function chargerStats() {
+    const res = await fetch('/api/admin/stats');
+    const data = await res.json();
+    if (!data.ok) return;
+    const s = data.stats;
+    document.querySelectorAll('.stat-card .num')[0].textContent = s.produits;
+    document.querySelectorAll('.stat-card .num')[1].textContent = s.ruptures;
+    document.querySelectorAll('.stat-card .num')[2].textContent = s.commandes_da;
+    document.querySelectorAll('.stat-card .num')[3].textContent = s.commandes_fournisseur;
+    document.querySelectorAll('.stat-card .num')[4].textContent = s.historique;
+    document.querySelectorAll('.stat-card .num')[5].textContent = s.logs;
+}
+
+// ═══ PRODUITS ═══
+let produitsAdmin = [];
+
+async function chargerProduits() {
+    const res = await fetch('/api/admin/produits');
+    const data = await res.json();
+    if (!data.ok) return;
+    produitsAdmin = data.produits;
+    afficherProduits(produitsAdmin);
+}
+
+function afficherProduits(produits) {
+    const tbody = document.getElementById('adminProduitsBody');
+    tbody.innerHTML = produits.map(p => {
+        const stockClass = p.stock <= 0 ? 'badge-empty' : p.stock <= 5 ? 'badge-warn' : 'badge-ok';
+        return `
+        <tr id="prod-${p.code}">
+            <td><code>${p.code}</code></td>
+            <td class="edit-cell" data-field="nom">${p.nom}</td>
+            <td class="edit-cell" data-field="categorie">${p.categorie || '-'}</td>
+            <td style="text-align:center;">
+                <span class="badge ${stockClass}">${p.stock}</span>
+            </td>
+            <td style="text-align:center;">
+                <div class="edit-inline">
+                    <input type="number" id="mini-${p.code}" value="${p.stock_mini}" min="0" style="width:50px;">
+                    <button class="btn-small btn-edit" onclick="modifierProduit('${p.code}')">✓</button>
+                </div>
+            </td>
+            <td style="text-align:center;">
+                <div class="edit-inline">
+                    <input type="number" id="maxi-${p.code}" value="${p.stock_maxi}" min="0" style="width:50px;">
+                </div>
+            </td>
+            <td style="text-align:center;">
+                <button class="btn-small btn-delete" onclick="supprimerProduit('${p.code}')">🗑️</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function chargerCategories() {
+    const res = await fetch('/api/categories');
+    const data = await res.json();
+    if (!data.ok) return;
+    const sel = document.getElementById('filterCat');
+    data.categories.forEach(c => {
+        sel.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+}
+
+function filtrerProduits() {
+    const q = document.getElementById('searchAdmin').value.toLowerCase();
+    const cat = document.getElementById('filterCat').value;
+    const filtered = produitsAdmin.filter(p => {
+        const matchSearch = !q || p.nom.toLowerCase().includes(q) || p.code.toLowerCase().includes(q);
+        const matchCat = !cat || p.categorie === cat;
+        return matchSearch && matchCat;
+    });
+    afficherProduits(filtered);
+}
+
+async function modifierProduit(code) {
+    const mini = parseInt(document.getElementById('mini-' + code).value) || 0;
+    const maxi = parseInt(document.getElementById('maxi-' + code).value) || 0;
+    const res = await fetch('/api/admin/produit/modifier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, stock_mini: mini, stock_maxi: maxi })
+    });
+    const data = await res.json();
+    if (data.ok) {
+        chargerStats();
+        chargerProduits();
+    } else {
+        alert('Erreur: ' + data.error);
+    }
+}
+
+async function supprimerProduit(code) {
+    if (!confirm(`Supprimer le produit ${code} ?`)) return;
+    const res = await fetch('/api/admin/produit/supprimer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (data.ok) {
+        chargerStats();
+        chargerProduits();
+    } else {
+        alert('Erreur: ' + data.error);
+    }
+}
+
+// ═══ LOGS ═══
+async function chargerLogs() {
+    const res = await fetch('/api/admin/logs');
+    const data = await res.json();
+    if (!data.ok) return;
+    const container = document.getElementById('logsList');
+    if (data.logs.length === 0) {
+        container.innerHTML = '<p style="color:#7f8c8d;text-align:center;padding:20px;">Aucun log</p>';
+        return;
+    }
+    container.innerHTML = data.logs.map(l => {
+        const typeClass = l.type === 'error' ? 'log-error' : l.type === 'commande' ? 'log-commande' : 'log-info';
+        return `
+        <div class="log-item ${typeClass}">
+            <span class="log-type" style="color:${l.type === 'error' ? '#e74c3c' : l.type === 'commande' ? '#3498db' : '#27ae60'}">${l.type}</span>
+            <span class="log-time">${l.timestamp}</span>
+            <div class="log-msg">${l.message}</div>
+            ${l.details ? `<div class="log-details">${l.details}</div>` : ''}
+        </div>`;
+    }).join('');
+}
+
+async function viderLogs() {
+    if (!confirm('Vider tous les logs ?')) return;
+    const res = await fetch('/api/admin/logs/vider', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+        chargerLogs();
+        chargerStats();
+    }
+}
+
+// Auto-refresh toutes les 10 secondes si connecté
+if (loggedIn) {
+    setInterval(() => {
+        chargerStats();
+    }, 10000);
+}
+</script>
+</body>
+</html>

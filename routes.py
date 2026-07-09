@@ -1,12 +1,13 @@
-from flask import Blueprint, render_template, request, jsonify, send_file
+from flask import Blueprint, render_template, request, jsonify, send_file, session, redirect, url_for
 from datetime import datetime
 import urllib.request
 import json
-from models import db, Produit, Historique, CommandeDA, CommandeFournisseur
+from models import db, Produit, Historique, CommandeDA, CommandeFournisseur, Log
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
-    MAIL_EXPEDITEUR, MAIL_DESTINATAIRE, MAIL_DESTINATAIRE1, BREVO_API_KEY
+    MAIL_EXPEDITEUR, MAIL_DESTINATAIRE, MAIL_DESTINATAIRE1, BREVO_API_KEY,
+    ADMIN_PASSWORD
 )
 from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf, generate_commande_fournisseur_pdf
 
@@ -1244,6 +1245,183 @@ def api_csv_commandes_fournisseur():
         as_attachment=True
     )
 
+
+# ══════════════════════════════════════════════════════════════
+#  ADMIN
+# ══════════════════════════════════════════════════════════════
+
+def add_log(type, message, details=''):
+    """Ajoute un log dans la base de données."""
+    log = Log(type=type, message=message, details=str(details)[:500])
+    db.session.add(log)
+    db.session.commit()
+
+
+def require_admin():
+    """Vérifie que l'utilisateur est connecté en tant qu'admin."""
+    if not session.get('admin_logged_in'):
+        return False
+    return True
+
+
+@bp.route('/admin', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if password == ADMIN_PASSWORD:
+            session['admin_logged_in'] = True
+            return redirect(url_for('main.admin_dashboard'))
+        return render_template('admin.html', error='Mot de passe incorrect', logged_in=False)
+    return render_template('admin.html', logged_in=require_admin())
+
+
+@bp.route('/admin/dashboard')
+def admin_dashboard():
+    if not require_admin():
+        return redirect(url_for('main.admin_login'))
+    return render_template('admin.html', logged_in=True)
+
+
+@bp.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('main.admin_login'))
+
+
+@bp.route('/api/admin/produits')
+def admin_produits():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    produits = Produit.query.order_by(Produit.categorie, Produit.nom).all()
+    return jsonify({'ok': True, 'produits': [p.to_dict() for p in produits]})
+
+
+@bp.route('/api/admin/produit/modifier', methods=['POST'])
+def admin_modifier_produit():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    data = request.json
+    code = data.get('code')
+    produit = Produit.query.get(code)
+    if not produit:
+        return jsonify({'ok': False, 'error': 'Produit introuvable'}), 404
+
+    if 'nom' in data:
+        produit.nom = data['nom']
+    if 'categorie' in data:
+        produit.categorie = data['categorie']
+    if 'stock' in data:
+        produit.stock = int(data['stock'])
+    if 'stock_mini' in data:
+        produit.stock_mini = int(data['stock_mini'])
+    if 'stock_maxi' in data:
+        produit.stock_maxi = int(data['stock_maxi'])
+
+    db.session.commit()
+    add_log('info', f'Produit {code} modifié', f'Stock: {produit.stock}')
+    return jsonify({'ok': True, 'produit': produit.to_dict()})
+
+
+@bp.route('/api/admin/produit/supprimer', methods=['POST'])
+def admin_supprimer_produit():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    data = request.json
+    code = data.get('code')
+    produit = Produit.query.get(code)
+    if not produit:
+        return jsonify({'ok': False, 'error': 'Produit introuvable'}), 404
+
+    db.session.delete(produit)
+    db.session.commit()
+    add_log('info', f'Produit {code} supprimé')
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/admin/commandes_da')
+def admin_commandes_da():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    rows = CommandeDA.query.order_by(CommandeDA.date.desc(), CommandeDA.heure.desc()).all()
+    commandes = {}
+    for r in rows:
+        if r.cmd_id not in commandes:
+            commandes[r.cmd_id] = {
+                'id': r.cmd_id, 'date': r.date, 'heure': r.heure,
+                'destination': r.destination, 'statut': r.statut, 'produits': []
+            }
+        commandes[r.cmd_id]['produits'].append({
+            'code': r.code, 'nom': r.nom, 'quantite': r.quantite
+        })
+    return jsonify({'ok': True, 'commandes': list(commandes.values())})
+
+
+@bp.route('/api/admin/commandes_fournisseur')
+def admin_commandes_fournisseur():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    rows = CommandeFournisseur.query.order_by(CommandeFournisseur.date.desc(), CommandeFournisseur.heure.desc()).all()
+    commandes = {}
+    for r in rows:
+        if r.cmd_id not in commandes:
+            commandes[r.cmd_id] = {
+                'id': r.cmd_id, 'date': r.date, 'heure': r.heure,
+                'statut': 'recue', 'produits': []
+            }
+        if r.statut != 'recue':
+            commandes[r.cmd_id]['statut'] = 'en_attente'
+        commandes[r.cmd_id]['produits'].append({
+            'code': r.code, 'nom': r.nom, 'quantite': r.quantite,
+            'statut': r.statut, 'quantite_recue': r.quantite_recue, 'rupture': r.rupture
+        })
+    return jsonify({'ok': True, 'commandes': list(commandes.values())})
+
+
+@bp.route('/api/admin/historique')
+def admin_historique():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    return jsonify({'ok': True, 'commandes': load_historique()})
+
+
+@bp.route('/api/admin/logs')
+def admin_logs():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    logs = Log.query.order_by(Log.timestamp.desc()).limit(200).all()
+    return jsonify({'ok': True, 'logs': [l.to_dict() for l in logs]})
+
+
+@bp.route('/api/admin/logs/vider', methods=['POST'])
+def admin_vider_logs():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    Log.query.delete()
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@bp.route('/api/admin/stats')
+def admin_stats():
+    if not require_admin():
+        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
+    nb_produits = Produit.query.count()
+    nb_ruptures = Produit.query.filter(Produit.stock <= 0).count()
+    nb_cmd_da = CommandeDA.query.count()
+    nb_cmd_four = CommandeFournisseur.query.count()
+    nb_historique = Historique.query.count()
+    nb_logs = Log.query.count()
+    return jsonify({
+        'ok': True,
+        'stats': {
+            'produits': nb_produits,
+            'ruptures': nb_ruptures,
+            'commandes_da': nb_cmd_da,
+            'commandes_fournisseur': nb_cmd_four,
+            'historique': nb_historique,
+            'logs': nb_logs,
+        }
+    })
 
 # ══════════════════════════════════════════════════════════════
 #  ROUTE DYNAMIQUE EN DERNIER ⚠️

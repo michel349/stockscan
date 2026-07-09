@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -79,4 +80,23 @@ class CommandeFournisseur(db.Model):
             'statut': self.statut,
             'quantite_recue': self.quantite_recue,
             'rupture': self.rupture,
+        }
+
+
+class Log(db.Model):
+    __tablename__ = 'logs'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    type = db.Column(db.String(20), nullable=False)  # 'error', 'commande', 'info'
+    message = db.Column(db.Text, nullable=False)
+    details = db.Column(db.Text, default='')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M:%S') if self.timestamp else '',
+            'type': self.type,
+            'message': self.message,
+            'details': self.details,
         }
