@@ -1349,6 +1349,7 @@ function majPrepAffichage() {
             <td style="text-align:center;">
                 <input type="number" class="prep-qty-input" min="0" max="${p.demande}"
                        value="${p.scanne}" data-code="${p.code}"
+                       name="prep-qty-${p.code}" id="prep-qty-${p.code}"
                        onchange="setPrepQty('${p.code}', this.value)"
                        onfocus="this.select()"
                        style="width:60px;padding:4px 6px;border:2px solid #ddd;border-radius:6px;text-align:center;font-weight:bold;font-size:0.95rem;outline:none;">

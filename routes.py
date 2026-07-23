@@ -425,7 +425,16 @@ def api_nouvelle_commande_da():
             'produits':    [p for p in produits if p.get('quantite', 0) > 0],
         }
 
-        return jsonify({'ok': True, 'cmd_id': cmd_id})
+        response = jsonify({'ok': True, 'cmd_id': cmd_id})
+
+        import threading
+        threading.Thread(
+            target=envoyer_mail_commande,
+            args=(commande_mail, 'nouvelle'),
+            daemon=True
+        ).start()
+
+        return response
 
     except Exception as e:
         import traceback
@@ -752,25 +761,6 @@ def valider_commande_da():
     for li in lignes:
         li.statut = 'validee'
     db.session.commit()
-
-    # Envoyer notification email
-    now = datetime.now()
-    commande_mail = {
-        'id':          cmd_id,
-        'date':        lignes[0].date,
-        'heure':       lignes[0].heure,
-        'destination': lignes[0].destination,
-        'produits':    [
-            {'code': li.code, 'nom': li.nom, 'quantite': li.quantite}
-            for li in lignes
-        ],
-    }
-    import threading
-    threading.Thread(
-        target=envoyer_mail_commande,
-        args=(commande_mail, 'nouvelle'),
-        daemon=True
-    ).start()
 
     return jsonify({'ok': True})
 
