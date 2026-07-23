@@ -343,6 +343,12 @@
         </select>
     </div>
 
+    <div style="padding:8px 12px;">
+        <textarea id="commentaire-input" rows="2" placeholder="📝 Commentaire (date, demande de produits hors-listing…)"
+                  style="width:100%;padding:10px 14px;border:2px solid #ddd;border-radius:10px;font-size:0.95em;font-family:inherit;outline:none;resize:vertical;"
+                  onfocus="this.style.borderColor='#3498db'" onblur="this.style.borderColor='#ddd'"></textarea>
+    </div>
+
     <div class="tableau-produits" id="tableau-produits"></div>
 
     <div class="bottom-bar">
@@ -528,10 +534,11 @@
     }
 
     // ═══ ENVOYER COMMANDE ═══
-       // ═══ ENVOYER COMMANDE ═══
     async function envoyerCommande() {
         const codes = Object.keys(quantites);
         if (codes.length === 0) return;
+
+        const commentaire = document.getElementById('commentaire-input').value.trim();
 
         const produits = codes.map(code => {
             const p = catalogue.find(x => x.code === code);
@@ -542,10 +549,10 @@
 
         if (editingCmdId) {
             url = '/api/commandes_da/modifier';
-            body = { cmd_id: editingCmdId, produits };
+            body = { cmd_id: editingCmdId, produits, commentaire };
         } else {
             url = '/api/commandes_da/nouvelle';
-            body = { destination: currentDA, produits };
+            body = { destination: currentDA, produits, commentaire };
         }
 
         const res = await fetch(url, {
@@ -559,6 +566,7 @@
             toast(editingCmdId ? 'Commande modifiée ✓' : 'Commande envoyée ✓', 'success');
             editingCmdId = null;
             quantites = {};
+            document.getElementById('commentaire-input').value = '';
             showEcran('ecran-menu');
         } else {
             toast(data.error || 'Erreur', 'error');
@@ -604,6 +612,7 @@
                     <span class="${badgeClass}">${badgeText}</span>
                 </div>
                 <div class="body">
+                    ${cmd.commentaire ? `<div style="background:#fef9e7;padding:8px 12px;border-radius:8px;margin-bottom:8px;font-size:0.85em;color:#856404;">💬 ${cmd.commentaire}</div>` : ''}
                     ${produitsHTML}
                     <div class="cmd-actions">
                         <button style="background:#f39c12;" onclick="modifierCmd('${cmd.id}')">✏️ Modifier</button>

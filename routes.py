@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, send_file, sessi
 from datetime import datetime
 import urllib.request
 import json
-from models import db, Produit, Historique, CommandeDA, CommandeFournisseur, Log
+from models import db, Produit, Historique, CommandeDA, CommandeFournisseur
 
 from config import (
     DESTINATIONS, DEST_COLORS_HEX,
@@ -398,6 +398,8 @@ def api_nouvelle_commande_da():
         else:
             date_retrait = None
 
+        commentaire = data.get('commentaire', '')
+
         for p in produits:
             if p.get('quantite', 0) > 0:
                 db.session.add(CommandeDA(
@@ -409,7 +411,8 @@ def api_nouvelle_commande_da():
                     code         = p['code'],
                     nom          = p['nom'],
                     quantite     = p['quantite'],
-                    date_retrait = date_retrait
+                    date_retrait = date_retrait,
+                    commentaire  = commentaire
                 ))
 
         db.session.commit()
@@ -422,16 +425,7 @@ def api_nouvelle_commande_da():
             'produits':    [p for p in produits if p.get('quantite', 0) > 0],
         }
 
-        response = jsonify({'ok': True, 'cmd_id': cmd_id})
-
-        import threading
-        threading.Thread(
-            target=envoyer_mail_commande,
-            args=(commande_mail, 'nouvelle'),
-            daemon=True
-        ).start()
-
-        return response
+        return jsonify({'ok': True, 'cmd_id': cmd_id})
 
     except Exception as e:
         import traceback
@@ -453,6 +447,8 @@ def api_modifier_commande_da():
         return jsonify({'ok': False, 'error': 'Commande introuvable'})
     dest = existing.destination
 
+    commentaire = data.get('commentaire', '')
+
     CommandeDA.query.filter_by(cmd_id=cmd_id).delete()
 
     now = datetime.now()
@@ -467,6 +463,7 @@ def api_modifier_commande_da():
                 code        = p['code'],
                 nom         = p['nom'],
                 quantite    = p['quantite'],
+                commentaire = commentaire
             ))
 
     db.session.commit()
@@ -479,18 +476,7 @@ def api_modifier_commande_da():
         'produits':    [p for p in produits if p.get('quantite', 0) > 0],
     }
 
-    # ✅ On répond d'abord IMMEDIATEMENT à l'utilisateur
-    response = jsonify({'ok': True})
-
-    # ✅ Puis on envoie le mail EN ARRIERE PLAN sans attendre
-    import threading
-    threading.Thread(
-        target=envoyer_mail_commande,
-        args=(commande_mail, 'modifiée'),
-        daemon=True
-    ).start()
-
-    return response
+    return jsonify({'ok': True})
 
 
 @bp.route('/api/commandes_da/supprimer', methods=['POST'])
@@ -523,6 +509,7 @@ def api_commandes_da():
                 'heure':       r.heure,
                 'destination': r.destination,
                 'statut':      r.statut,
+                'commentaire': r.commentaire or '',
                 'produits':    [],
             }
         commandes[r.cmd_id]['produits'].append({
@@ -544,6 +531,7 @@ def api_pdf_commande_da(cmd_id):
         'date':        rows[0].date,
         'heure':       rows[0].heure,
         'destination': rows[0].destination,
+        'commentaire': rows[0].commentaire or '',
         'produits': [
             {'code': r.code, 'nom': r.nom, 'quantite': r.quantite}
             for r in rows
@@ -739,6 +727,7 @@ def commandes_da_liste():
                 'date':        li.date,
                 'heure':       li.heure,
                 'date_retrait': li.date_retrait,
+                'commentaire': li.commentaire or '',
                 'produits':    []
             }
         p = Produit.query.get(li.code)
@@ -1250,11 +1239,6 @@ def api_csv_commandes_fournisseur():
 #  ADMIN
 # ══════════════════════════════════════════════════════════════
 
-def add_log(type, message, details=''):
-    """Ajoute un log dans la base de données."""
-    log = Log(type=type, message=message, details=str(details)[:500])
-    db.session.add(log)
-    db.session.commit()
 
 
 def require_admin():
@@ -1318,7 +1302,6 @@ def admin_modifier_produit():
         produit.stock_maxi = int(data['stock_maxi'])
 
     db.session.commit()
-    add_log('info', f'Produit {code} modifié', f'Stock: {produit.stock}')
     return jsonify({'ok': True, 'produit': produit.to_dict()})
 
 
@@ -1334,7 +1317,6 @@ def admin_supprimer_produit():
 
     db.session.delete(produit)
     db.session.commit()
-    add_log('info', f'Produit {code} supprimé')
     return jsonify({'ok': True})
 
 
@@ -1384,21 +1366,6 @@ def admin_historique():
     return jsonify({'ok': True, 'commandes': load_historique()})
 
 
-@bp.route('/api/admin/logs')
-def admin_logs():
-    if not require_admin():
-        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
-    logs = Log.query.order_by(Log.timestamp.desc()).limit(200).all()
-    return jsonify({'ok': True, 'logs': [l.to_dict() for l in logs]})
-
-
-@bp.route('/api/admin/logs/vider', methods=['POST'])
-def admin_vider_logs():
-    if not require_admin():
-        return jsonify({'ok': False, 'error': 'Non autorisé'}), 401
-    Log.query.delete()
-    db.session.commit()
-    return jsonify({'ok': True})
 
 
 @bp.route('/api/admin/stats')
@@ -1410,7 +1377,6 @@ def admin_stats():
     nb_cmd_da = CommandeDA.query.count()
     nb_cmd_four = CommandeFournisseur.query.count()
     nb_historique = Historique.query.count()
-    nb_logs = Log.query.count()
     return jsonify({
         'ok': True,
         'stats': {
@@ -1419,7 +1385,6 @@ def admin_stats():
             'commandes_da': nb_cmd_da,
             'commandes_fournisseur': nb_cmd_four,
             'historique': nb_historique,
-            'logs': nb_logs,
         }
     })
 
@@ -1441,6 +1406,7 @@ def api_commandes_da_par_dest(destination):
                 'heure':       r.heure,
                 'destination': r.destination,
                 'statut':      r.statut,
+                'commentaire': r.commentaire or '',
                 'produits':    [],
             }
         commandes[r.cmd_id]['produits'].append({

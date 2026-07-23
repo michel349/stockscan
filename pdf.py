@@ -63,6 +63,19 @@ def generate_commande_pdf(commande):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
     story.append(info_table)
+    
+    if commentaire:
+        style_commentaire = ParagraphStyle(
+            'commentaire', fontSize=11, textColor=couleur_dest,
+            spaceAfter=6, spaceBefore=8, leftIndent=4,
+            borderPadding=(6, 8, 6, 8),
+            backColor=colors.HexColor('#fef9e7'),
+        )
+        story.append(Paragraph(
+            f"<b>📝 Commentaire :</b> {commentaire}",
+            style_commentaire
+        ))
+    
     story.append(Spacer(1, 0.5*cm))
     story.append(HRFlowable(width="100%", thickness=1, color=couleur_dest))
     story.append(Spacer(1, 0.4*cm))
@@ -228,6 +241,7 @@ def generate_commande_da_pdf(commande):
 
     produits    = commande.get('produits', [])
     nb_articles = sum(p.get('quantite', 0) for p in produits)
+    commentaire = commande.get('commentaire', '')
 
     info_data = [
         ['Commande :',    commande.get('id', '')],

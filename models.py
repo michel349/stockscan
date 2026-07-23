@@ -52,6 +52,7 @@ class CommandeDA(db.Model):
     nom = db.Column(db.String(200), default='')
     quantite = db.Column(db.Integer, default=0)
     date_retrait = db.Column(db.Date, nullable=True)
+    commentaire = db.Column(db.String(500), default='')
 
 
 class CommandeFournisseur(db.Model):
@@ -83,20 +84,3 @@ class CommandeFournisseur(db.Model):
         }
 
 
-class Log(db.Model):
-    __tablename__ = 'logs'
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    type = db.Column(db.String(20), nullable=False)  # 'error', 'commande', 'info'
-    message = db.Column(db.Text, nullable=False)
-    details = db.Column(db.Text, default='')
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M:%S') if self.timestamp else '',
-            'type': self.type,
-            'message': self.message,
-            'details': self.details,
-        }

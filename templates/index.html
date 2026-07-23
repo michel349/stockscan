@@ -1178,6 +1178,7 @@ ${ cmd.date_retrait ? `
                 </div>
             </div>
             <div class="cmd-detail" id="detail-da-${cmd.id}">
+                ${cmd.commentaire ? `<div style="background:#fef9e7;padding:8px 12px;border-radius:8px;margin-bottom:8px;font-size:0.85em;color:#856404;">💬 ${cmd.commentaire}</div>` : ''}
                 <table class="stock-table">
                     <thead>
                         <tr>
@@ -1346,7 +1347,11 @@ function majPrepAffichage() {
             <td><code>${p.code}</code></td>
             <td>${p.nom}</td>
             <td style="text-align:center;">
-                <span class="prep-badge ${badgeClass}">${p.scanne}</span>
+                <input type="number" class="prep-qty-input" min="0" max="${p.demande}"
+                       value="${p.scanne}" data-code="${p.code}"
+                       onchange="setPrepQty('${p.code}', this.value)"
+                       onfocus="this.select()"
+                       style="width:60px;padding:4px 6px;border:2px solid #ddd;border-radius:6px;text-align:center;font-weight:bold;font-size:0.95rem;outline:none;">
             </td>
             <td style="text-align:center;font-weight:bold;">${p.demande}</td>
         </tr>`;
@@ -1496,6 +1501,14 @@ function validerPreparation() {
             }, 2000);
         });
     });
+}
+
+function setPrepQty(code, val) {
+    if (!prepDA) return;
+    const produit = prepDA.produits.find(p => p.code === code);
+    if (!produit) return;
+    produit.scanne = Math.max(0, Math.min(produit.demande, parseInt(val) || 0));
+    majPrepAffichage();
 }
 
 function annulerPreparation() {

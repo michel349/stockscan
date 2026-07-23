@@ -333,12 +333,10 @@
         <div class="stat-card da"><div class="num">-</div><div class="label">Commandes DA</div></div>
         <div class="stat-card four"><div class="num">-</div><div class="label">Cmd Fournisseur</div></div>
         <div class="stat-card"><div class="num">-</div><div class="label">Historique</div></div>
-        <div class="stat-card logs"><div class="num">-</div><div class="label">Logs</div></div>
     </div>
 
     <div class="admin-tabs">
         <div class="admin-tab active" onclick="switchAdminTab('base', this)">🗄️ Base de données</div>
-        <div class="admin-tab" onclick="switchAdminTab('logs', this)">📋 Logs</div>
     </div>
 
     <!-- Panel Base de données -->
@@ -369,14 +367,6 @@
             </div>
         </div>
 
-        <!-- Panel Logs -->
-        <div class="admin-panel" id="panel-logs">
-            <div class="toolbar">
-                <span style="color:#7f8c8d;font-size:0.9rem;">Derniers événements</span>
-                <button class="btn-danger" onclick="viderLogs()">🗑️ Vider les logs</button>
-            </div>
-            <div id="logsList"></div>
-        </div>
     </div>
 <!-- ══ MODALE AJOUT PRODUIT ══ -->
 <div class="modale-overlay" id="modaleAjoutProduit">
@@ -399,7 +389,6 @@ const loggedIn = {{ 'true' if logged_in else 'false' }};
 if (loggedIn) {
     chargerStats();
     chargerProduits();
-    chargerLogs();
     chargerCategories();
 }
 
@@ -421,7 +410,6 @@ async function chargerStats() {
     document.querySelectorAll('.stat-card .num')[2].textContent = s.commandes_da;
     document.querySelectorAll('.stat-card .num')[3].textContent = s.commandes_fournisseur;
     document.querySelectorAll('.stat-card .num')[4].textContent = s.historique;
-    document.querySelectorAll('.stat-card .num')[5].textContent = s.logs;
 }
 
 // ═══ PRODUITS ═══
@@ -566,37 +554,6 @@ document.getElementById('modaleAjoutProduit').addEventListener('click', function
     if (e.target === this) fermerAjoutProduit();
 });
 
-// ═══ LOGS ═══
-async function chargerLogs() {
-    const res = await fetch('/api/admin/logs');
-    const data = await res.json();
-    if (!data.ok) return;
-    const container = document.getElementById('logsList');
-    if (data.logs.length === 0) {
-        container.innerHTML = '<p style="color:#7f8c8d;text-align:center;padding:20px;">Aucun log</p>';
-        return;
-    }
-    container.innerHTML = data.logs.map(l => {
-        const typeClass = l.type === 'error' ? 'log-error' : l.type === 'commande' ? 'log-commande' : 'log-info';
-        return `
-        <div class="log-item ${typeClass}">
-            <span class="log-type" style="color:${l.type === 'error' ? '#e74c3c' : l.type === 'commande' ? '#3498db' : '#27ae60'}">${l.type}</span>
-            <span class="log-time">${l.timestamp}</span>
-            <div class="log-msg">${l.message}</div>
-            ${l.details ? `<div class="log-details">${l.details}</div>` : ''}
-        </div>`;
-    }).join('');
-}
-
-async function viderLogs() {
-    if (!confirm('Vider tous les logs ?')) return;
-    const res = await fetch('/api/admin/logs/vider', { method: 'POST' });
-    const data = await res.json();
-    if (data.ok) {
-        chargerLogs();
-        chargerStats();
-    }
-}
 
 // Auto-refresh toutes les 10 secondes si connecté
 if (loggedIn) {
