@@ -905,11 +905,6 @@ function afficherHistoFournisseur() {
                 <button class="btn-download btn-csv" onclick="csvFournisseur('${cmd.id}')">
                     📥 CSV
                 </button>
-                ${cmd.statut === 'en_attente' ? `
-                <button class="btn-download" style="background:#f39c12;color:white;" onclick="modifierCommandeFournisseur('${cmd.id}')">
-                    ✏️ Modifier
-                </button>
-                ` : ''}
                 <button class="btn-download" style="background:#27ae60;color:white;" onclick="excelFournisseur('${cmd.id}')">
                     📊 Excel
                 </button>
@@ -1014,7 +1009,10 @@ function afficherReception(commandes) {
                         ${lignes}
                     </tbody>
                 </table>
-                <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                <div style="display:flex;justify-content:flex-end;margin-top:14px;gap:10px;">
+                    <button class="btn-valider" style="background:#f39c12;" onclick="modifierCommandeFournisseur('${cmd.id}')">
+                        ✏️ Modifier
+                    </button>
                     <button class="btn-valider" onclick="validerReception('${cmd.id}')">
                         ✅ Valider la réception
                     </button>
@@ -1085,8 +1083,27 @@ function validerReception(cmdId) {
 let editingFournCmdId = null;
 
 function modifierCommandeFournisseur(cmdId) {
-    const cmd = histoFournisseurData.find(c => c.id === cmdId);
-    if (!cmd) return;
+    // Chercher d'abord dans les données déjà chargées
+    let cmd = histoFournisseurData.find(c => c.id === cmdId);
+    
+    // Si pas trouvé, faire un appel API pour récupérer la commande
+    if (!cmd) {
+        fetch('/api/commandes_fournisseur')
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                cmd = data.commandes.find(c => c.id === cmdId);
+                if (cmd) chargerModification(cmd);
+            }
+        });
+        return;
+    }
+    
+    chargerModification(cmd);
+}
+
+function chargerModification(cmd) {
+    const cmdId = cmd.id;
 
     if (!confirm(`Charger la commande #${cmdId} dans le panier pour modification ?`)) return;
 
