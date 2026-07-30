@@ -830,6 +830,52 @@ def api_nouvelle_commande_fournisseur():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@bp.route('/api/commande_fournisseur/modifier', methods=['POST'])
+def api_modifier_commande_fournisseur():
+    """Modifie une commande fournisseur en attente (supprime et recrée les lignes)."""
+    try:
+        data = request.json
+        cmd_id = data.get('cmd_id')
+        produits = data.get('produits', [])
+
+        if not cmd_id:
+            return jsonify({'ok': False, 'error': 'ID commande manquant'}), 400
+        if not produits:
+            return jsonify({'ok': False, 'error': 'Aucun produit'}), 400
+
+        # Vérifier que la commande existe et est en attente
+        existing = CommandeFournisseur.query.filter_by(cmd_id=cmd_id).first()
+        if not existing:
+            return jsonify({'ok': False, 'error': 'Commande introuvable'}), 404
+        if existing.statut != 'en_attente':
+            return jsonify({'ok': False, 'error': 'Impossible de modifier une commande déjà reçue'}), 400
+
+        # Supprimer les anciennes lignes
+        CommandeFournisseur.query.filter_by(cmd_id=cmd_id).delete()
+
+        # Recréer avec les nouvelles quantités
+        now = datetime.now()
+        for p in produits:
+            qte = p.get('quantite', 0)
+            if qte > 0:
+                db.session.add(CommandeFournisseur(
+                    cmd_id   = cmd_id,
+                    date     = now.strftime('%Y-%m-%d'),
+                    heure    = now.strftime('%H:%M:%S'),
+                    code     = p['code'],
+                    nom      = p['nom'],
+                    quantite = qte,
+                ))
+
+        db.session.commit()
+        return jsonify({'ok': True, 'cmd_id': cmd_id, 'message': f'Commande {cmd_id} modifiée'})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @bp.route('/api/commande_fournisseur/reception', methods=['POST'])
 def api_reception_commande_fournisseur():
     """Valide la réception d'une commande fournisseur et met à jour le stock."""

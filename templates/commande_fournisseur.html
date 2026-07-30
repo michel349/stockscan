@@ -905,6 +905,11 @@ function afficherHistoFournisseur() {
                 <button class="btn-download btn-csv" onclick="csvFournisseur('${cmd.id}')">
                     📥 CSV
                 </button>
+                ${cmd.statut === 'en_attente' ? `
+                <button class="btn-download" style="background:#f39c12;color:white;" onclick="modifierCommandeFournisseur('${cmd.id}')">
+                    ✏️ Modifier
+                </button>
+                ` : ''}
                 <button class="btn-download" style="background:#27ae60;color:white;" onclick="excelFournisseur('${cmd.id}')">
                     📊 Excel
                 </button>
@@ -1062,6 +1067,94 @@ function validerReception(cmdId) {
             chargerCommandesEnAttente();
             // Recharger les suggestions et le stock
             chargerSuggestions();
+            setTimeout(() => {
+                document.getElementById('feedbackGlobal').classList.remove('show');
+            }, 4000);
+        } else {
+            afficherFeedback('error', '❌ Erreur : ' + data.error);
+        }
+    })
+    .catch(err => {
+        afficherFeedback('error', '❌ Erreur réseau : ' + err.message);
+    });
+}
+
+// ════════════════════════════════════════════════
+//  MODIFIER UNE COMMANDE FOURNISSEUR
+// ════════════════════════════════════════════════
+let editingFournCmdId = null;
+
+function modifierCommandeFournisseur(cmdId) {
+    const cmd = histoFournisseurData.find(c => c.id === cmdId);
+    if (!cmd) return;
+
+    if (!confirm(`Charger la commande #${cmdId} dans le panier pour modification ?`)) return;
+
+    // Vider le panier actuel
+    panierFournisseur = {};
+
+    // Remplir le panier avec les produits de la commande
+    cmd.produits.forEach(p => {
+        panierFournisseur[p.code] = {
+            nom: p.nom,
+            quantite: p.quantite,
+            categorie: p.categorie || ''
+        };
+    });
+
+    // Stocker l'ID de la commande en cours d'édition
+    editingFournCmdId = cmdId;
+
+    // Mettre à jour le panier
+    majPanierFournisseur();
+    chargerSuggestions();
+    chargerCatalogue();
+
+    // Changer le texte du bouton valider
+    const btn = document.getElementById('btnValiderFour');
+    btn.textContent = '✏️ Modifier la commande';
+    btn.onclick = validerModificationFournisseur;
+
+    // Basculer sur l'onglet nouvelle commande
+    switchFournTab('nouvelle', document.querySelector('.histo-tab'));
+
+    afficherFeedback('ok', `📝 Commande #${cmdId} chargée dans le panier. Modifiez les quantités puis cliquez sur "Modifier la commande".`);
+}
+
+function validerModificationFournisseur() {
+    if (!editingFournCmdId) return;
+
+    const keys = Object.keys(panierFournisseur);
+    if (keys.length === 0) return;
+
+    if (!confirm(`Confirmer la modification de la commande #${editingFournCmdId} ?`)) return;
+
+    const produits = keys.map(code => ({
+        code: code,
+        nom: panierFournisseur[code].nom,
+        quantite: panierFournisseur[code].quantite
+    }));
+
+    afficherFeedback('ok', '⏳ Modification en cours…');
+
+    fetch('/api/commande_fournisseur/modifier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd_id: editingFournCmdId, produits })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            panierFournisseur = {};
+            editingFournCmdId = null;
+            majPanierFournisseur();
+            chargerSuggestions();
+            chargerCatalogue();
+            // Restaurer le bouton valider
+            const btn = document.getElementById('btnValiderFour');
+            btn.textContent = '✅ Valider la commande fournisseur';
+            btn.onclick = validerCommandeFournisseur;
+            afficherFeedback('ok', `✅ Commande #${data.cmd_id} modifiée avec succès !`);
             setTimeout(() => {
                 document.getElementById('feedbackGlobal').classList.remove('show');
             }, 4000);
