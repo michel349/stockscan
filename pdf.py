@@ -18,6 +18,109 @@ def get_dest_color(destination):
 
 
 # ════════════════════════════════════════════════
+#  PDF BON DE PRÉLÈVEMENT
+# ════════════════════════════════════════════════
+def generate_commande_pdf(commande):
+    """
+    commande = {
+        'id':          'DA-...',
+        'destination': 'DA1',
+        'date':        '2025-01-15',
+        'heure':       '14:32',
+        'produits':    [{'code', 'nom', 'quantite', 'stock_apres'?}, ...]
+    }
+    """
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=1.5*cm, bottomMargin=2*cm
+    )
+
+    couleur_dest = get_dest_color(commande.get('destination', ''))
+    story        = []
+
+    produits    = commande.get('produits', [])
+    nb_articles = sum(p.get('quantite', 0) for p in produits)
+
+    # ── En-tête : titre à gauche, destination + date à droite ──
+    entete = Table(
+        [[
+            "BON DE PRÉLÈVEMENT",
+            commande.get('destination', '')
+        ], [
+            "",
+            f"{commande.get('date', '')}  {commande.get('heure', '')}"
+        ]],
+        colWidths=[11*cm, 6*cm]
+    )
+    entete.setStyle(TableStyle([
+        ('FONTNAME',      (0, 0), (0, 0),   'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (0, 0),   16),
+        ('FONTNAME',      (1, 0), (1, 0),   'Helvetica-Bold'),
+        ('FONTSIZE',      (1, 0), (1, 0),   16),
+        ('FONTSIZE',      (1, 1), (1, 1),   11),
+        ('ALIGN',         (1, 0), (1, -1),  'RIGHT'),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('LINEBELOW',     (0, -1), (-1, -1), 2, couleur_dest),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
+    ]))
+    story.append(entete)
+    story.append(Spacer(1, 0.4*cm))
+
+    # ── Tableau produits ──────────────────────────────────────
+    GRIS  = colors.HexColor('#f2f2f2')
+    GRIS2 = colors.HexColor('#dee2e6')
+
+    rows = [['Code', 'Produit', 'Qté', 'Stock après']]
+    for p in produits:
+        stock_apres = p.get('stock_apres', '')
+        rows.append([str(p.get('code', '')), p.get('nom', ''),
+                     str(p.get('quantite', 0)), str(stock_apres)])
+
+    prod_table = Table(rows, colWidths=[3*cm, 7.5*cm, 2.5*cm, 3*cm], repeatRows=1)
+    prod_table.setStyle(TableStyle([
+        ('BACKGROUND',     (0, 0), (-1,  0), couleur_dest),
+        ('TEXTCOLOR',      (0, 0), (-1,  0), colors.white),
+        ('FONTNAME',       (0, 0), (-1,  0), 'Helvetica-Bold'),
+        ('FONTSIZE',       (0, 0), (-1,  0), 9),
+        ('ALIGN',          (0, 0), (-1,  0), 'CENTER'),
+        ('FONTNAME',       (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE',       (0, 1), (-1, -1), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, GRIS]),
+        ('ALIGN',          (2, 1), (3,  -1), 'CENTER'),
+        ('GRID',           (0, 0), (-1, -1), 0.5, GRIS2),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 7),
+        ('TOPPADDING',     (0, 0), (-1, -1), 7),
+    ]))
+    story.append(prod_table)
+
+    # ── Total ──
+    story.append(Spacer(1, 0.5*cm))
+    style_total = ParagraphStyle(
+        'total', fontSize=12, alignment=TA_CENTER, fontName='Helvetica-Bold'
+    )
+    story.append(Paragraph(
+        f"TOTAL : {nb_articles} articles / {len(produits)} références",
+        style_total
+    ))
+
+    # ── Numéro de page ──
+    def pied_de_page(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 8)
+        canvas.setFillColor(colors.grey)
+        canvas.drawRightString(A4[0] - 2*cm, 1.2*cm, f"Page {doc.page}")
+        canvas.restoreState()
+
+    doc.build(story, onFirstPage=pied_de_page, onLaterPages=pied_de_page)
+    buffer.seek(0)
+    return buffer
+
+
+# ════════════════════════════════════════════════
 #  PDF COMMANDE DA
 # ════════════════════════════════════════════════
 def generate_commande_da_pdf(commande):
