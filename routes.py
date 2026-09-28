@@ -9,7 +9,7 @@ from config import (
     MAIL_EXPEDITEUR, MAIL_DESTINATAIRE, MAIL_DESTINATAIRE1, BREVO_API_KEY,
     ADMIN_PASSWORD
 )
-from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf, generate_commande_fournisseur_pdf
+from pdf import generate_commande_pdf, generate_journalier_pdf, generate_commande_da_pdf
 
 bp = Blueprint('main', __name__)
 
@@ -960,27 +960,6 @@ def api_commandes_fournisseur():
         })
 
     return jsonify({'ok': True, 'commandes': list(commandes.values())})
-
-
-@bp.route('/api/commande_fournisseur/pdf/<cmd_id>')
-def api_pdf_commande_fournisseur(cmd_id):
-    rows = CommandeFournisseur.query.filter_by(cmd_id=cmd_id).all()
-    if not rows:
-        return 'Commande introuvable', 404
-
-    commande = {
-        'id':       cmd_id,
-        'date':     rows[0].date,
-        'heure':    rows[0].heure,
-        'produits': [
-            {'code': r.code, 'nom': r.nom, 'quantite': r.quantite}
-            for r in rows
-        ],
-    }
-
-    buf = generate_commande_fournisseur_pdf(commande)
-    return send_file(buf, mimetype='application/pdf',
-                     download_name=f'{cmd_id}.pdf')
 
 
 @bp.route('/api/commande_fournisseur/excel/<cmd_id>')

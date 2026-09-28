@@ -899,9 +899,6 @@ function afficherHistoFournisseur() {
                         ${lignes}
                     </tbody>
                 </table>
-                <button class="btn-download btn-pdf" onclick="pdfFournisseur('${cmd.id}')">
-                    📄 PDF
-                </button>
                 <button class="btn-download btn-csv" onclick="csvFournisseur('${cmd.id}')">
                     📥 CSV
                 </button>
@@ -916,10 +913,6 @@ function afficherHistoFournisseur() {
 function toggleHistoFourn(id) {
     document.getElementById('detail-fourn-' + id).classList.toggle('open');
     document.getElementById('chev-fourn-' + id).classList.toggle('open');
-}
-
-function pdfFournisseur(cmdId) {
-    window.open('/api/commande_fournisseur/pdf/' + cmdId, '_blank');
 }
 
 function csvFournisseur(cmdId) {
