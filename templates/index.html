@@ -451,6 +451,16 @@
             font-size: 0.9rem;
         }
         .btn-pdf:hover { background: #c0392b; }
+        .btn-imprimer {
+            padding: 8px 18px;
+            background: #8e44ad;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-imprimer:hover { background: #732d91; }
 
         /* ── FILTRES ── */
         .filtres-bar {
@@ -1206,6 +1216,10 @@ ${ cmd.date_retrait ? `
                     </tbody>
                 </table>
                 <div style="display:flex;gap:10px;margin-top:12px;">
+                <button class="btn-imprimer" style="flex:1;"
+                        data-cmdid="${cmd.id}" onclick="imprimerCommandeDA(this.dataset.cmdid)">
+                    🖨️ Imprimer
+                </button>
                 <button class="btn-pdf" style="background:#27ae60;flex:1;" 
                         data-cmdid="${cmd.id}" onclick="preparerCommandeDA(this.dataset.cmdid)">
                     📋 Préparer (scan)
@@ -1223,6 +1237,10 @@ ${ cmd.date_retrait ? `
 function toggleCmdDA(id) {
     document.getElementById('detail-da-' + id).classList.toggle('open');
     document.getElementById('chev-da-' + id).classList.toggle('open');
+}
+
+function imprimerCommandeDA(cmdId) {
+    window.open('/api/commandes_da/pdf/' + cmdId, '_blank');
 }
 
 // ════════════════════════════════════════════════

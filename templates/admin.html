@@ -487,8 +487,15 @@ async function modifierProduit(code) {
     });
     const data = await res.json();
     if (data.ok) {
+        // Mettre à jour l'objet en mémoire SANS reconstruire la liste
+        // (préserve le filtre de catégorie, le focus et le scroll).
+        const p = produitsAdmin.find(item => item.code === code);
+        if (p) {
+            p.stock = stock;
+            p.stock_mini = mini;
+            p.stock_maxi = maxi;
+        }
         chargerStats();
-        chargerProduits();
     } else {
         alert('Erreur: ' + data.error);
     }
@@ -552,6 +559,28 @@ async function confirmerAjoutProduit() {
 
 document.getElementById('modaleAjoutProduit').addEventListener('click', function(e) {
     if (e.target === this) fermerAjoutProduit();
+});
+
+
+// ═══ NAVIGATION ALT ═══
+// Sur un champ produit (stock/mini/maxi) : Alt valide la ligne courante
+// puis place le focus sur le champ "stock" de la ligne suivante, sans
+// reconstruire la liste (préserve filtre, focus et scroll).
+document.addEventListener('keydown', function (e) {
+    if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey || e.repeat) return;
+    const t = e.target;
+    if (!t || t.tagName !== 'INPUT' || !t.id) return;
+    const m = /^(stock|mini|maxi)-(.+)$/.exec(t.id);
+    if (!m) return;
+    e.preventDefault();
+    const code = m[2];
+    if (code) modifierProduit(code);
+    const tr = t.closest('tr');
+    const nextRow = tr ? tr.nextElementSibling : null;
+    if (nextRow) {
+        const nxt = nextRow.querySelector('input[id^="stock-"]');
+        if (nxt) { nxt.focus(); nxt.select(); }
+    }
 });
 
 

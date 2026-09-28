@@ -584,14 +584,14 @@ function ajouterDepuisCatalogue(code, qteStr) {
     if (!qte || qte <= 0) {
         delete panierFournisseur[code];
         majPanierFournisseur();
-        chargerCatalogue();
+        const inp = document.getElementById('cat-qte-' + code);
+        if (inp) inp.value = '';
         return;
     }
     const produit = catalogueData.find(p => p.code === code);
     if (!produit) return;
     panierFournisseur[code] = { nom: produit.nom, quantite: qte, categorie: produit.categorie || '' };
     majPanierFournisseur();
-    chargerCatalogue();
 }
 
 // ════════════════════════════════════════════════
@@ -680,14 +680,14 @@ function ajouterDepuisSuggestion(code, qteStr) {
     if (!qte || qte <= 0) {
         delete panierFournisseur[code];
         majPanierFournisseur();
-        chargerSuggestions();
+        const inp = document.getElementById('sugg-qte-' + code);
+        if (inp) inp.value = '';
         return;
     }
     const produit = catalogueData.find(p => p.code === code);
     if (!produit) return;
     panierFournisseur[code] = { nom: produit.nom, quantite: qte, categorie: produit.categorie || '' };
     majPanierFournisseur();
-    chargerSuggestions();
 }
 
 // ════════════════════════════════════════════════
@@ -1193,6 +1193,41 @@ function afficherFeedback(type, message) {
     fb.className = classes[type] || 'feedback show';
     fb.textContent = message;
 }
+
+// ════════════════════════════════════════════════
+//  NAVIGATION CLAVIER — touche Alt : valider la quantité
+//  et passer au produit suivant, sans réinitialiser la liste
+// ════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Alt' || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const el = document.activeElement;
+    if (!el || !el.classList || !el.classList.contains('qte-input')) return;
+
+    // Empêcher le menu navigateur déclenché par Alt seul
+    e.preventDefault();
+
+    // Valider la quantité tapée (équivalent onchange, mais immédiat)
+    const code = el.id.replace(/^(cat|sugg)-qte-/, '');
+    const value = el.value;
+    if (el.id.startsWith('cat-')) {
+        ajouterDepuisCatalogue(code, value);
+    } else if (el.id.startsWith('sugg-')) {
+        ajouterDepuisSuggestion(code, value);
+    }
+
+    // Passer au champ suivant visible dans la même liste (suggestions ou catalogue)
+    const container = el.closest('#suggestionsList, #catalogList');
+    if (!container) return;
+    const champs = Array.from(container.querySelectorAll('.qte-input'))
+        .filter(c => c.offsetParent !== null); // champs visibles uniquement
+    const idx = champs.indexOf(el);
+    const next = champs[(idx + 1) % champs.length];
+    if (next) {
+        next.focus();
+        next.select(); // pré-sélectionne la valeur pour saisie rapide
+    }
+});
+
 </script>
 
 </body>
