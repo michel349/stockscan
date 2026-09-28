@@ -196,7 +196,7 @@ def generate_commande_da_pdf(commande):
         cat = (p.get('categorie') or 'DIVERS').upper()
         groupes[cat].append(p)
 
-    rows   = [['Produit', 'Qté', 'OK']]
+    rows   = [['Produit', 'Qté', 'OK', 'Reçu']]
     styles = [
         ('FONTNAME',      (0, 0), (-1,  0), 'Helvetica-Bold'),
         ('FONTSIZE',      (0, 0), (-1,  0), 9),
@@ -213,7 +213,7 @@ def generate_commande_da_pdf(commande):
 
     for cat_name in sorted(groupes.keys()):
         i = len(rows)
-        rows.append([cat_name, '', ''])
+        rows.append([cat_name, '', '', ''])
         styles += [
             ('SPAN',       (0, i), (-1, i)),
             ('BACKGROUND', (0, i), (-1, i), GRIS),
@@ -223,13 +223,14 @@ def generate_commande_da_pdf(commande):
         ]
         for p in sorted(groupes[cat_name], key=lambda x: x.get('nom', '')):
             j = len(rows)
-            rows.append([p.get('nom', ''), str(p.get('quantite', 0)), ''])
+            rows.append([p.get('nom', ''), str(p.get('quantite', 0)), '', ''])
             styles += [
                 ('LINEBELOW', (0, j), (-1, j), 0.3, GRIS2),
-                ('BOX',       (2, j), (2,  j), 0.8, colors.black),  # case à cocher
+                ('BOX',       (2, j), (2,  j), 0.8, colors.black),  # OK : préparateur
+                ('BOX',       (3, j), (3,  j), 0.8, colors.black),  # Reçu : validation DA
             ]
 
-    prod_table = Table(rows, colWidths=[13.5*cm, 2.5*cm, 1*cm], repeatRows=1)
+    prod_table = Table(rows, colWidths=[11.5*cm, 2*cm, 1.5*cm, 1.5*cm], repeatRows=1)
     prod_table.setStyle(TableStyle(styles))
     story.append(prod_table)
 
