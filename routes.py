@@ -541,11 +541,20 @@ def api_pdf_commande_da(cmd_id):
         'heure':       rows[0].heure,
         'destination': rows[0].destination,
         'commentaire': rows[0].commentaire or '',
-        'produits': [
-            {'code': r.code, 'nom': r.nom, 'quantite': r.quantite}
-            for r in rows
-        ],
     }
+
+    # Enrichir avec la catégorie (non stockée dans CommandeDA) et trier
+    produits = []
+    for r in rows:
+        produit = Produit.query.get(r.code)
+        produits.append({
+            'code':      r.code,
+            'nom':       r.nom,
+            'categorie': produit.categorie if produit else '',
+            'quantite':  r.quantite,
+        })
+    produits.sort(key=lambda x: (x['categorie'] or '', x['nom'] or ''))
+    commande['produits'] = produits
 
     buf = generate_commande_da_pdf(commande)
     return send_file(buf, mimetype='application/pdf',

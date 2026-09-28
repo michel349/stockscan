@@ -264,32 +264,65 @@ def generate_commande_da_pdf(commande):
     story.append(HRFlowable(width="100%", thickness=1, color=couleur_dest))
     story.append(Spacer(1, 0.4*cm))
 
-    # ── Tableau produits ──────────────────────────────────────
-    rows = [['Code', 'Produit', 'Quantité']]
+    # ── Produits groupés par catégorie ─────────────────────────
+    groupes = defaultdict(list)
     for p in produits:
-        rows.append([
-            p.get('code', ''),
-            p.get('nom', ''),
-            str(p.get('quantite', 0))
-        ])
+        cat = p.get('categorie') or 'DIVERS'
+        groupes[cat].append(p)
 
-    prod_table = Table(rows, colWidths=[3.5*cm, 11*cm, 2.5*cm], repeatRows=1)
-    prod_table.setStyle(TableStyle([
-        ('BACKGROUND',     (0, 0), (-1,  0), couleur_dest),
-        ('TEXTCOLOR',      (0, 0), (-1,  0), colors.white),
-        ('FONTNAME',       (0, 0), (-1,  0), 'Helvetica-Bold'),
-        ('FONTSIZE',       (0, 0), (-1,  0), 10),
-        ('ALIGN',          (0, 0), (-1,  0), 'CENTER'),
-        ('FONTNAME',       (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE',       (0, 1), (-1, -1), 10),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, GRIS]),
-        ('ALIGN',          (2, 1), (2,  -1), 'CENTER'),
-        ('GRID',           (0, 0), (-1, -1), 0.5, GRIS2),
-        ('BOTTOMPADDING',  (0, 0), (-1, -1), 7),
-        ('TOPPADDING',     (0, 0), (-1, -1), 7),
-    ]))
-    story.append(prod_table)
-    story.append(Spacer(1, 1*cm))
+    style_categorie = ParagraphStyle(
+        'categorie', fontSize=11, alignment=TA_CENTER,
+        fontName='Helvetica-Bold',
+        backColor=GRIS2, textColor=couleur_dest,
+        spaceBefore=8, spaceAfter=4,
+        borderPadding=(6, 6, 6, 6)
+    )
+
+    for cat_name in sorted(groupes.keys()):
+        story.append(Paragraph(cat_name.upper(), style_categorie))
+
+        rows = [['Produit', 'Quantité']]
+        for p in groupes[cat_name]:
+            rows.append([
+                p.get('nom', ''),
+                str(p.get('quantite', 0))
+            ])
+
+        prod_table = Table(rows, colWidths=[14*cm, 3*cm], repeatRows=1)
+        prod_table.setStyle(TableStyle([
+            ('BACKGROUND',     (0, 0), (-1,  0), couleur_dest),
+            ('TEXTCOLOR',      (0, 0), (-1,  0), colors.white),
+            ('FONTNAME',       (0, 0), (-1,  0), 'Helvetica-Bold'),
+            ('FONTSIZE',       (0, 0), (-1,  0), 10),
+            ('ALIGN',          (0, 0), (-1,  0), 'CENTER'),
+            ('FONTNAME',       (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE',       (0, 1), (-1, -1), 11),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, GRIS]),
+            ('ALIGN',          (1, 1), (1,  -1), 'CENTER'),
+            ('GRID',           (0, 0), (-1, -1), 0.5, GRIS2),
+            ('BOTTOMPADDING',  (0, 0), (-1, -1), 8),
+            ('TOPPADDING',     (0, 0), (-1, -1), 8),
+        ]))
+        story.append(prod_table)
+
+    story.append(Spacer(1, 0.6*cm))
+    style_total = ParagraphStyle(
+        'total', fontSize=12, alignment=TA_CENTER,
+        fontName='Helvetica-Bold', textColor=couleur_dest
+    )
+    story.append(Paragraph(
+        f"TOTAL : {nb_articles} articles / {len(produits)} références",
+        style_total
+    ))
+
+    if commentaire:
+        story.append(Spacer(1, 0.4*cm))
+        style_commentaire = ParagraphStyle(
+            'commentaire', fontSize=10, textColor=colors.HexColor('#555555')
+        )
+        story.append(Paragraph(
+            f"<b>Commentaire :</b> {commentaire}", style_commentaire
+        ))
 
     doc.build(story)
     buffer.seek(0)
