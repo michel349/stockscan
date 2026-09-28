@@ -243,24 +243,17 @@ def generate_commande_da_pdf(commande):
     nb_articles = sum(p.get('quantite', 0) for p in produits)
     commentaire = commande.get('commentaire', '')
 
-    info_data = [
-        ['Commande :',    commande.get('id', '')],
-        ['Destination :', commande.get('destination', '')],
-        ['Date :',        commande.get('date', '')],
-        ['Heure :',       commande.get('heure', '')],
-        ['Nb produits :', str(len(produits))],
-        ['Nb articles :', str(nb_articles)],
-    ]
-    info_table = Table(info_data, colWidths=[4*cm, 10*cm])
-    info_table.setStyle(TableStyle([
-        ('FONTNAME',      (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTNAME',      (0, 0), (0,  -1), 'Helvetica-Bold'),
-        ('FONTSIZE',      (0, 0), (-1, -1), 10),
-        ('TEXTCOLOR',     (0, 0), (0,  -1), couleur_dest),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    story.append(info_table)
-    story.append(Spacer(1, 0.5*cm))
+    # ── En-tête simple : date + destination (DA1 / DA2) ──
+    style_info = ParagraphStyle(
+        'info', fontSize=13, alignment=TA_CENTER,
+        fontName='Helvetica-Bold', textColor=couleur_dest,
+        spaceBefore=2, spaceAfter=2
+    )
+    story.append(Paragraph(
+        f"{commande.get('date', '')}  —  {commande.get('destination', '')}",
+        style_info
+    ))
+    story.append(Spacer(1, 0.3*cm))
     story.append(HRFlowable(width="100%", thickness=1, color=couleur_dest))
     story.append(Spacer(1, 0.4*cm))
 
