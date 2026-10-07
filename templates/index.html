@@ -1364,13 +1364,17 @@ function majPrepAffichage() {
             <td class="prep-check">${check}</td>
             <td><code>${p.code}</code></td>
             <td>${p.nom}</td>
-            <td style="text-align:center;">
+            <td style="text-align:center;white-space:nowrap;">
+                <button type="button" onclick="changePrepQty('${p.code}', -1)"
+                        style="width:26px;height:28px;background:#f8d7da;color:#c0392b;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:1rem;">−</button>
                 <input type="number" class="prep-qty-input" min="0" max="${p.demande}"
                        value="${p.scanne}" data-code="${p.code}"
                        name="prep-qty-${p.code}" id="prep-qty-${p.code}"
                        onchange="setPrepQty('${p.code}', this.value)"
                        onfocus="this.select()"
-                       style="width:60px;padding:4px 6px;border:2px solid #ddd;border-radius:6px;text-align:center;font-weight:bold;font-size:0.95rem;outline:none;">
+                       style="width:52px;padding:4px 6px;border:2px solid #ddd;border-radius:6px;text-align:center;font-weight:bold;font-size:0.95rem;outline:none;">
+                <button type="button" onclick="changePrepQty('${p.code}', 1)"
+                        style="width:26px;height:28px;background:#d4efdf;color:#27ae60;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:1rem;">+</button>
             </td>
             <td style="text-align:center;font-weight:bold;">${p.demande}</td>
         </tr>`;
@@ -1531,6 +1535,17 @@ function setPrepQty(code, val) {
     if (!produit) return;
     produit.scanne = Math.max(0, Math.min(produit.demande, parseInt(val) || 0));
     majPrepAffichage();
+}
+
+function changePrepQty(code, delta) {
+    if (!prepDA) return;
+    const produit = prepDA.produits.find(p => p.code === code);
+    if (!produit) return;
+    // Ajuster de ±1, borné entre 0 et la quantité demandée
+    produit.scanne = Math.max(0, Math.min(produit.demande, (produit.scanne || 0) + delta));
+    majPrepAffichage();
+    const inp = document.getElementById('prep-qty-' + code);
+    if (inp) inp.focus();
 }
 
 function annulerPreparation() {
