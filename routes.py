@@ -904,19 +904,33 @@ def api_reception_commande_fournisseur():
             code = p.get('code')
             quantite_recue = int(p.get('quantite_recue', 0))
             rupture = p.get('rupture', False)
+            if not code:
+                continue
 
             # Mettre à jour chaque ligne de la commande
+            nom_produit = ''
             for ligne in lignes:
                 if ligne.code == code:
                     ligne.statut = 'recue'
                     ligne.quantite_recue = quantite_recue
                     ligne.rupture = rupture
+                    nom_produit = ligne.nom
 
-            # Mettre à jour le stock
+            # Mettre à jour le stock : incrémente le produit s'il existe,
+            # sinon le CRÉE (nouvelle référence) avec la quantité reçue.
             if quantite_recue > 0:
                 produit = Produit.query.get(code)
                 if produit:
                     produit.stock += quantite_recue
+                elif nom_produit:
+                    db.session.add(Produit(
+                        code=code,
+                        nom=nom_produit,
+                        categorie='',
+                        stock=quantite_recue,
+                        stock_mini=0,
+                        stock_maxi=0,
+                    ))
 
         db.session.commit()
         return jsonify({'ok': True, 'message': f'Réception validée pour {cmd_id}'})
