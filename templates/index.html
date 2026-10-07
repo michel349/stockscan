@@ -1309,7 +1309,7 @@ function preparerCommandeDA(cmdId) {
             code: p.code,
             nom: p.nom,
             demande: p.quantite,
-            scanne: 0
+            scanne: p.quantite   // pré-rempli = quantité demandée ; l'utilisateur met à 0 ce qui n'est pas présent
         }))
     };
 
@@ -1474,9 +1474,12 @@ function validerPreparation() {
     fb.textContent = '⏳ Validation en cours…';
 
     // Construire le panier pour /valider_commande
+    // Ne garder que les produits avec une quantité > 0 (ceux mis à 0 sont exclus)
     const panierPrep = {};
     prepDA.produits.forEach(p => {
-        panierPrep[p.code] = { nom: p.nom, quantite: p.scanne };
+        if (p.scanne > 0) {
+            panierPrep[p.code] = { nom: p.nom, quantite: p.scanne };
+        }
     });
 
     // Transformer en format attendu par l'API
