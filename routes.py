@@ -919,7 +919,7 @@ def api_reception_commande_fournisseur():
             # Mettre à jour le stock : incrémente le produit s'il existe,
             # sinon le CRÉE (nouvelle référence) avec la quantité reçue.
             if quantite_recue > 0:
-                produit = Produit.query.get(code)
+                produit = Produit.query.filter_by(code=code).first()
                 if produit:
                     produit.stock += quantite_recue
                 elif nom_produit:
